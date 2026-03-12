@@ -60,7 +60,7 @@ bot.command("start", async (ctx) => {
   } else {
     // New user — start onboarding
     await ctx.reply(
-      `✈️ Welcome to *TonPilot*, ${firstName}!\n\nI automate your TON wallet — swaps, sends, alerts — all from Telegram, in plain English.\n\nLet's set up your autopilot vault first. This creates a dedicated TON wallet that TonPilot controls on your behalf.`,
+      `✈️ Welcome to *TonPilot*, ${firstName}.\n\nTonPilot automates your TON wallet 24/7 — swaps on a schedule, price alerts that act, recurring sends that never miss.\n\nYou set the rules. I fly the plane. Let's build your vault.`,
       {
         parse_mode: "Markdown",
         reply_markup: new InlineKeyboard().text("🚀 Create My Vault", "create_wallet"),
