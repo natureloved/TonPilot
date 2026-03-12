@@ -1,0 +1,37 @@
+{
+  "name": "tonpilot",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "bot:dev": "tsx watch src/bot/index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.3",
+    "@supabase/supabase-js": "^2.43.4",
+    "@ton/crypto": "^3.3.0",
+    "@ton/ton": "^15.0.0",
+    "axios": "^1.7.2",
+    "cron-parser": "^5.5.0",
+    "grammy": "^1.26.0",
+    "lucide-react": "^0.577.0",
+    "next": "14.2.3",
+    "node-cron": "^3.0.3",
+    "react": "^18",
+    "react-dom": "^18",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/node-cron": "^3.0.11",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.0.1",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "tsx": "^4.15.1",
+    "typescript": "^5"
+  }
+}
