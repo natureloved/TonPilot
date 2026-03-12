@@ -12,6 +12,7 @@
 
 import { TonClient, WalletContractV5R1, internal } from "@ton/ton";
 import { mnemonicNew, mnemonicToPrivateKey } from "@ton/crypto";
+import { Action } from "@/types";
 
 // ── TON Client ───────────────────────────────────────────────────────────────
 
@@ -100,7 +101,7 @@ export async function getTonPrice(): Promise<number> {
  */
 export async function executeMcpAction(
   walletMnemonic: string,
-  action: { type: string; [key: string]: unknown }
+  action: Action
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
   const mcpUrl = process.env.TON_MCP_URL ?? "http://localhost:3001";
 

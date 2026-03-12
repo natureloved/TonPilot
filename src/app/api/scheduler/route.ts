@@ -155,7 +155,7 @@ function computeNextRun(rule: Rule): string | null {
   // For schedule triggers, use cron-parser for accurate next run time
   try {
     const t = rule.trigger as ScheduleTrigger;
-    const interval = cronParser.parseExpression(t.cron);
+    const interval = cronParser.parse(t.cron);
     return interval.next().toISOString();
   } catch (err) {
     console.error("Cron parse error", err);
