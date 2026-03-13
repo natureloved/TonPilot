@@ -122,7 +122,7 @@ bot.callbackQuery("open_dashboard", async (ctx) => {
   await ctx.answerCallbackQuery();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   await ctx.reply("📊 Open your TonPilot dashboard:", {
-    reply_markup: new InlineKeyboard().url(
+    reply_markup: new InlineKeyboard().webApp(
       "Open Dashboard →",
       `${appUrl}/dashboard`
     ),
@@ -181,7 +181,7 @@ bot.command("rules", async (ctx) => {
     `📋 *Your Active Rules (${rules.length})*\n\n${ruleList}\n\nTo pause a rule: /pause <id>\nTo delete: /delete <id>`,
     {
       parse_mode: "Markdown",
-      reply_markup: new InlineKeyboard().url(
+      reply_markup: new InlineKeyboard().webApp(
         "Manage in Dashboard →",
         `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
       ),
@@ -338,7 +338,7 @@ bot.callbackQuery(/^confirm_rule:(.+)$/, async (ctx) => {
       `✅ *Rule activated!* "${payload.name}" is now live.\n\nI'll notify you every time it runs.`,
       {
         parse_mode: "Markdown",
-        reply_markup: new InlineKeyboard().url(
+        reply_markup: new InlineKeyboard().webApp(
           "View in Dashboard →",
           `${appUrl}/dashboard`
         ),
