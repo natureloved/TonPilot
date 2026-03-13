@@ -2,12 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #09090b;
-  --foreground: #fafafa;
+@layer base {
+  :root {
+    --background: #03040B; /* Deep Space Black/Blue */
+    --foreground: #F8FAFC; /* Slate 50 */
+    
+    --card: rgba(15, 23, 42, 0.4);
+    --card-border: rgba(255, 255, 255, 0.08);
+    
+    --primary: #0098EA;
+    --primary-glow: rgba(0, 152, 234, 0.2);
+    
+    --accent: #818CF8;
+    --accent-glow: rgba(129, 140, 248, 0.2);
+  }
+
+  body {
+    color: var(--foreground);
+    background: var(--background);
+    background-image: 
+      radial-gradient(circle at 15% 50%, var(--primary-glow), transparent 25%),
+      radial-gradient(circle at 85% 30%, var(--accent-glow), transparent 25%);
+    background-attachment: fixed;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
+@layer utilities {
+  .glass-panel {
+    @apply bg-[var(--card)] backdrop-blur-xl border border-[var(--card-border)] rounded-2xl shadow-2xl;
+  }
+  
+  .glass-nav {
+    @apply bg-[#03040B]/80 backdrop-blur-xl border-t border-[var(--card-border)];
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60;
+  }
+
+  .text-gradient-primary {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#0098EA] to-[#818CF8];
+  }
+
+  /* Hide scrollbar for clean look */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
