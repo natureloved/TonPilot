@@ -55,15 +55,21 @@ export default function Dashboard() {
 
     const fetchDashboardData = async () => {
       try {
-        // Fetch Rules
-        const rulesRes = await fetch(`/api/rules?userId=${userId}`);
-        const rulesData = await rulesRes.json();
+        // Fetch Rules and Wallet in parallel
+        const [rulesRes, walletRes] = await Promise.all([
+          fetch(`/api/rules?userId=${userId}`),
+          fetch(`/api/wallet?userId=${userId}`)
+        ]);
+
         if (rulesRes.ok) {
+          const rulesData = await rulesRes.json();
           setRules(rulesData.rules);
-          // In a real app we would also fetch the wallet balance here
-          // For now, let's just simulate fetching it to show the UI
-          setTonBalance(124.5);
-          setUsdBalance(652.38);
+        }
+
+        if (walletRes.ok) {
+          const walletData = await walletRes.json();
+          setTonBalance(walletData.balance);
+          setUsdBalance(walletData.usdValue);
         }
       } catch (err) {
         console.error("Failed to load live data", err);
