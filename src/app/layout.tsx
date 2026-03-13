@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "TonPilot",
-  description: "Automate your TON wallet in plain English",
+  description: "Automate your TON wallet",
 };
 
 export default function RootLayout({

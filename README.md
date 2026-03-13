@@ -1,6 +1,6 @@
 # ✈️ TonPilot
 
-> Automate your TON wallet in plain English — swaps, sends, alerts — all from Telegram.
+> Automate your TON wallet — swaps, sends, alerts — all from Telegram.
 
 Built for the **TON AI Agent Hackathon** (March 11–25, 2026) · Track 2: User-Facing Agents
 
@@ -110,7 +110,7 @@ vercel.json                       ← Cron schedule (every minute)
 
 ## How It Works
 
-1. User sends a message to the Telegram bot in plain English
+1. User sends a message to the Telegram bot
 2. Claude API parses the message into a structured rule (trigger + action)
 3. Bot shows a confirmation card — user taps Activate
 4. Rule is saved to Supabase

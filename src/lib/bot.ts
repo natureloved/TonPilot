@@ -98,7 +98,7 @@ bot.callbackQuery("create_wallet", async (ctx) => {
       `✅ *Vault Created!*\n\n` +
         `Your TonPilot vault address:\n\`${address}\`\n\n` +
         `📌 *Fund your vault* by sending TON to this address from any wallet (Tonkeeper, MyTonWallet, etc).\n\n` +
-        `Once funded, just tell me what to automate in plain English. For example:\n` +
+        `Once funded, just tell me what to automate. For example:\n` +
         `• _"Swap 20 TON to USDT every Friday"_\n` +
         `• _"Alert me when TON hits $5"_\n` +
         `• _"Send 5 TON to UQBx... on the 1st of every month"_`,
@@ -235,7 +235,7 @@ bot.command("help", async (ctx) => {
       `/pause <id> — Pause a rule\n` +
       `/delete <id> — Delete a rule\n` +
       `/help — Show this message\n\n` +
-      `Or just *tell me what to automate* in plain English!`,
+      `Or just *tell me what to automate*!`,
     { parse_mode: "Markdown" }
   );
 });
