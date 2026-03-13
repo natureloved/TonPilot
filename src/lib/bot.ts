@@ -120,11 +120,12 @@ bot.callbackQuery("create_wallet", async (ctx) => {
 
 bot.callbackQuery("open_dashboard", async (ctx) => {
   await ctx.answerCallbackQuery();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
+  const dashboardUrl = rawUrl.endsWith("/dashboard") ? rawUrl : `${rawUrl}/dashboard`;
   await ctx.reply("📊 Open your TonPilot dashboard:", {
     reply_markup: new InlineKeyboard().webApp(
       "Open Dashboard →",
-      `${appUrl}`
+      dashboardUrl
     ),
   });
 });
@@ -177,13 +178,16 @@ bot.command("rules", async (ctx) => {
     })
     .join("\n\n");
 
+  const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
+  const dashboardUrl = rawUrl.endsWith("/dashboard") ? rawUrl : `${rawUrl}/dashboard`;
+
   await ctx.reply(
     `📋 *Your Active Rules (${rules.length})*\n\n${ruleList}\n\nTo pause a rule: /pause <id>\nTo delete: /delete <id>`,
     {
       parse_mode: "Markdown",
       reply_markup: new InlineKeyboard().webApp(
         "Manage in Dashboard →",
-        `${process.env.NEXT_PUBLIC_APP_URL}`
+        dashboardUrl
       ),
     }
   );
@@ -332,7 +336,8 @@ bot.callbackQuery(/^confirm_rule:(.+)$/, async (ctx) => {
 
     if (error) throw error;
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
+    const dashboardUrl = rawUrl.endsWith("/dashboard") ? rawUrl : `${rawUrl}/dashboard`;
 
     await ctx.editMessageText(
       `✅ *Rule activated!* "${payload.name}" is now live.\n\nI'll notify you every time it runs.`,
@@ -340,7 +345,7 @@ bot.callbackQuery(/^confirm_rule:(.+)$/, async (ctx) => {
         parse_mode: "Markdown",
         reply_markup: new InlineKeyboard().webApp(
           "View in Dashboard →",
-          `${appUrl}`
+          dashboardUrl
         ),
       }
     );
