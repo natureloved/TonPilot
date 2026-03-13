@@ -124,7 +124,7 @@ bot.callbackQuery("open_dashboard", async (ctx) => {
   await ctx.reply("📊 Open your TonPilot dashboard:", {
     reply_markup: new InlineKeyboard().webApp(
       "Open Dashboard →",
-      `${appUrl}/dashboard`
+      `${appUrl}`
     ),
   });
 });
@@ -183,7 +183,7 @@ bot.command("rules", async (ctx) => {
       parse_mode: "Markdown",
       reply_markup: new InlineKeyboard().webApp(
         "Manage in Dashboard →",
-        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
+        `${process.env.NEXT_PUBLIC_APP_URL}`
       ),
     }
   );
@@ -340,7 +340,7 @@ bot.callbackQuery(/^confirm_rule:(.+)$/, async (ctx) => {
         parse_mode: "Markdown",
         reply_markup: new InlineKeyboard().webApp(
           "View in Dashboard →",
-          `${appUrl}/dashboard`
+          `${appUrl}`
         ),
       }
     );
