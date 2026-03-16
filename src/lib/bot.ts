@@ -711,6 +711,13 @@ bot.on("message:text", async (ctx) => {
       return;
     }
 
+    if (!parsed.rule) return;
+    const { name, trigger, action } = parsed.rule;
+
+    // Build a human-readable confirmation
+    const triggerDesc = formatTrigger(trigger);
+    const actionDesc = formatAction(action);
+
     // Save to pending_rules to avoid 64-byte callback limit
     const { data: pending, error: pendingErr } = await supabaseAdmin
       .from("pending_rules")
@@ -753,35 +760,53 @@ bot.on("message:text", async (ctx) => {
 
 bot.callbackQuery(/^confirm_rule:(.+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
+  const shortId = ctx.match[1];
   const telegramId = ctx.from.id.toString();
 
   try {
-    const payload = decodeRulePayload(ctx.match[1]);
-
-    const { data: rule, error } = await supabaseAdmin
-      .from("rules")
-      .insert({
-        user_id: telegramId,
-        name: payload.name,
-        trigger: payload.trigger,
-        action: payload.action,
-        status: "active",
-        run_count: 0,
-        next_run_at: computeNextRun(payload.trigger),
-      })
-      .select()
+    // 1. Fetch full rule from pending
+    const { data: pending, error: fetchErr } = await supabaseAdmin
+      .from("pending_rules")
+      .select("*")
+      .eq("user_id", telegramId)
+      .ilike("id", `${shortId}%`)
       .single();
 
-    if (error) throw error;
+    if (fetchErr || !pending) {
+      console.warn("[confirm_rule] Pending rule not found:", shortId, fetchErr);
+      await ctx.editMessageText("❌ Rule expired or not found. Please try again.");
+      return;
+    }
+
+    // 2. Insert into real rules table
+    const { error: insertErr } = await supabaseAdmin
+      .from("rules")
+      .insert({
+        user_id: pending.user_id,
+        name: pending.name,
+        trigger: pending.trigger,
+        action: pending.action,
+        status: "active",
+        run_count: 0,
+        next_run_at: computeNextRun(pending.trigger),
+      });
+
+    if (insertErr) throw insertErr;
+
+    // 3. Delete from pending
+    await supabaseAdmin
+      .from("pending_rules")
+      .delete()
+      .eq("id", pending.id);
 
     const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
     const dashboardUrl = rawUrl.endsWith("/dashboard") ? rawUrl : `${rawUrl}/dashboard`;
 
     await ctx.editMessageText(
-      `✅ *Rule activated!* "${payload.name}" is now live.\n\nI'll notify you every time it runs.`,
+      `✅ <b>Rule activated!</b> "${pending.name}" is now live.\n\nI'll notify you every time it runs.`,
       {
-        parse_mode: "Markdown",
-        reply_markup: new InlineKeyboard().webApp(
+        parse_mode: "HTML",
+        reply_markup: new InlineKeyboard().url(
           "View in Dashboard →",
           dashboardUrl
         ),
@@ -789,8 +814,22 @@ bot.callbackQuery(/^confirm_rule:(.+)$/, async (ctx) => {
     );
   } catch (err) {
     console.error("[confirm_rule] error:", err);
-    await ctx.editMessageText("❌ Failed to save rule. Please try again.");
+    await ctx.editMessageText("❌ Failed to activate rule. Please try again.");
   }
+});
+
+bot.callbackQuery(/^delete_pending:(.+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const shortId = ctx.match[1];
+  const telegramId = ctx.from.id.toString();
+  
+  await supabaseAdmin
+    .from("pending_rules")
+    .delete()
+    .eq("user_id", telegramId)
+    .ilike("id", `${shortId}%`);
+    
+  await ctx.editMessageText("Rule cancelled. Tell me if you want to set something else up!");
 });
 
 bot.callbackQuery("cancel_rule", async (ctx) => {
