@@ -24,13 +24,33 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Fetch all active rules
-    const { data: rules, error } = await supabaseAdmin
+    const nowTime = new Date();
+    const oneMinuteAgo = new Date(nowTime.getTime() - 60000);
+
+    // Fetch scheduled rules that are due RIGHT NOW
+    const { data: scheduledRules, error: scheduleError } = await supabaseAdmin
       .from("rules")
       .select("*, users!inner(wallet_address, wallet_mnemonic_enc)")
-      .eq("status", "active");
+      .eq("status", "active")
+      .lte("next_run_at", nowTime.toISOString())
+      .gte("next_run_at", oneMinuteAgo.toISOString());
 
-    if (error) throw error;
+    if (scheduleError) throw scheduleError;
+
+    // Fetch condition rules (price, balance) that are always evaluated
+    const { data: conditionRules, error: conditionError } = await supabaseAdmin
+      .from("rules")
+      .select("*, users!inner(wallet_address, wallet_mnemonic_enc)")
+      .eq("status", "active")
+      .in("trigger->>type", ["price_above", "price_below", "balance_below", "balance_above"]);
+
+    if (conditionError) throw conditionError;
+
+    const rulesMap = new Map();
+    if (scheduledRules) scheduledRules.forEach(r => rulesMap.set(r.id, r));
+    if (conditionRules) conditionRules.forEach(r => rulesMap.set(r.id, r));
+    const rules = Array.from(rulesMap.values());
+
     if (!rules || rules.length === 0) {
       return NextResponse.json({ message: "No active rules", ...results });
     }
@@ -49,6 +69,13 @@ export async function GET(req: NextRequest) {
 
         const shouldFire = await checkTrigger(rule, tonPrice);
         if (!shouldFire) continue;
+
+        // FIRST: immediately push next_run_at to future to prevent double-firing
+        const nextRun = computeNextRun(rule.trigger);
+        await supabaseAdmin
+          .from("rules")
+          .update({ next_run_at: nextRun })
+          .eq("id", rule.id);
 
         // Execute the action
         const mnemonic = decryptMnemonic(rule.users.wallet_mnemonic_enc);
@@ -70,11 +97,9 @@ export async function GET(req: NextRequest) {
         }
 
         // Fail-safe logic
-        const nextRun = computeNextRun(rule.trigger);
         const updateData: any = {
           run_count: rule.run_count + 1,
           last_run_at: new Date().toISOString(),
-          next_run_at: nextRun,
         };
 
         if (execResult.success) {
@@ -123,7 +148,6 @@ export async function GET(req: NextRequest) {
           const fallbackData = {
             run_count: rule.run_count + 1,
             last_run_at: new Date().toISOString(),
-            next_run_at: nextRun,
             status: updateData.status ?? rule.status,
           };
 
@@ -160,13 +184,8 @@ async function checkTrigger(rule: Rule & { users: any }, tonPrice: number): Prom
   const { trigger } = rule;
 
   switch (trigger.type) {
-    case "schedule": {
-      if (rule.next_run_at) {
-        return new Date(rule.next_run_at).getTime() <= Date.now();
-      }
-      const t = trigger as ScheduleTrigger;
-      return isCronDue(t.cron);
-    }
+    case "schedule":
+      return true; // already filtered by next_run_at query
 
     case "price_above": {
       const t = trigger as PriceTrigger;
@@ -190,28 +209,6 @@ async function checkTrigger(rule: Rule & { users: any }, tonPrice: number): Prom
     default:
       return false;
   }
-}
-
-/**
- * Simplified cron check — checks if the current minute matches the cron expression.
- * For production, replace with a proper library like `cron-parser` or `cronstrue`.
- */
-function isCronDue(cron: string): boolean {
-  const now = new Date();
-  const [minute, hour, dayOfMonth, month, dayOfWeek] = cron.split(" ");
-
-  const match = (field: string, value: number) => {
-    if (field === "*") return true;
-    return parseInt(field, 10) === value;
-  };
-
-  return (
-    match(minute, now.getUTCMinutes()) &&
-    match(hour, now.getUTCHours()) &&
-    match(dayOfMonth, now.getUTCDate()) &&
-    match(month, now.getUTCMonth() + 1) &&
-    match(dayOfWeek, now.getUTCDay())
-  );
 }
 
 // ── Next Run Computation ──────────────────────────────────────────────────────
