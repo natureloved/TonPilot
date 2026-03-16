@@ -387,7 +387,7 @@ export default function ArcticDashboard() {
           </button>
         </div>
         
-        {rules.length === 0 ? (
+        {rules.filter(r => r.status === "active").length === 0 ? (
           <div className="bg-white border border-[#e0e8ff] border-dashed rounded-[24px] p-10 text-center space-y-3">
             <div className="w-12 h-12 bg-[#f0f4ff] rounded-full flex items-center justify-center mx-auto">
               <Zap className="w-6 h-6 text-[#2563eb]" />
@@ -402,7 +402,7 @@ export default function ArcticDashboard() {
           </div>
         ) : (
           <div className="space-y-3">
-            {rules.slice(0, 3).map((rule) => (
+            {rules.filter(r => r.status === "active").slice(0, 3).map((rule) => (
               <RuleCard key={rule.id} rule={rule} onToggle={() => toggleRule(rule)} />
             ))}
           </div>
@@ -463,7 +463,7 @@ export default function ArcticDashboard() {
         </div>
       ) : (
         <div className="space-y-4">
-          {rules.map((rule) => (
+          {rules.sort((a, b) => (a.status === "active" ? -1 : 1)).map((rule) => (
             <RuleCard 
               key={rule.id} 
               rule={rule} 

@@ -65,7 +65,13 @@ Alert-only action:
 - Asset names should be uppercase: TON, USDT, NOT, STON
 - If the user says "every week" without specifying a day, default to Monday
 - If no time is specified for a schedule, default to 09:00 UTC
-- Always generate a short descriptive name for the rule (e.g. "Weekly DCA", "Price Alert", "Monthly Send")`;
+- Always generate a short descriptive name for the rule (e.g. "Weekly DCA", "Price Alert", "Monthly Send")
+
+IMPORTANT: All times must be converted to UTC. 
+If the user says '11:25pm' assume it is their local 
+time. Since we cannot know their timezone, save it 
+as-is in UTC and note in the clarification field 
+that the time is treated as UTC.`;
 
 export async function parseIntent(userMessage: string): Promise<ParsedIntent> {
   try {

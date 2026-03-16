@@ -248,10 +248,14 @@ bot.callbackQuery("show_wallet", async (ctx) => {
     getTonPrice(),
   ]);
 
+  const usdValue = (balance * price).toFixed(2);
+
   await ctx.reply(
     `💼 *Your Vault*\n\n` +
-    `Address: \`${user.wallet_address}\`\n` +
-    `Balance: *${balance.toFixed(2)} TON* (~$${(balance * price).toFixed(2)})`,
+      `Address: \`${user.wallet_address}\`\n` +
+      `Balance: *${balance.toFixed(2)} TON*\n` +
+      `Value: ~$${usdValue} USD\n` +
+      `TON Price: $${price.toFixed(4)}`,
     { parse_mode: "Markdown" }
   );
 });
@@ -774,8 +778,10 @@ bot.on("message:text", async (ctx) => {
       `Got it — here's what I'll set up:\n\n` +
         `📋 <b>${name}</b>\n` +
         `⚡ When: ${triggerDesc}\n` +
+        `🌍 Timezone: UTC (add your offset to convert)\n` +
         `🎯 Do: ${actionDesc}\n\n` +
-        `Shall I activate this rule?`,
+        `Shall I activate this rule?\n\n` +
+        `⚠️ <i>Time is in UTC. If you're in WAT (UTC+1), subtract 1 hour from your local time when setting rules.</i>`,
       { parse_mode: "HTML", reply_markup: keyboard }
     );
   } catch (err: any) {
