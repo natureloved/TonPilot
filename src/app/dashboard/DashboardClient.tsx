@@ -53,6 +53,28 @@ function formatRelativeTime(dateInput: Date | string): string {
   return date.toLocaleDateString();
 }
 
+function nextRunText(dateStr: string | null): string {
+  if (!dateStr) return "—";
+  
+  const next = new Date(dateStr);
+  const now = new Date();
+  const diffMs = next.getTime() - now.getTime();
+  
+  // If time is in the past, show "updating..." 
+  // (scheduler will correct it on next cycle)
+  if (diffMs <= 0) return "updating...";
+  
+  const diffMins  = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays  = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1)   return "< 1 min";
+  if (diffMins < 60)  return `in ${diffMins}m`;
+  if (diffHours < 24) return `in ${diffHours}h`;
+  if (diffDays === 1) return "tomorrow";
+  return `in ${diffDays}d`;
+}
+
 function relativeTime(dateStr: string, full = false): string {
   const date = new Date(dateStr);
   const diffMs = Date.now() - date.getTime();
@@ -96,9 +118,15 @@ export default function ArcticDashboard() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [showFund, setShowFund] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [withdrawAddress, setWithdrawAddress] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const [withdrawSuccess, setWithdrawSuccess] = useState(false);
   const [manualUid, setManualUid] = useState("");
   const [showManualLogin, setShowManualLogin] = useState(false);
-
 
   // Initialize & Fetch Data
   const fetchData = useCallback(async (uid: string) => {
@@ -144,22 +172,21 @@ export default function ArcticDashboard() {
     setMounted(true);
     if (typeof window !== "undefined") {
       try {
-        const tg = WebApp as any;
-        console.log("WebApp Full Object:", tg);
-        console.log("WebApp initDataUnsafe:", tg.initDataUnsafe);
-
-        if (tg && typeof tg.ready === 'function') {
+        const tg = (window as any).Telegram?.WebApp;
+        if (tg?.initDataUnsafe?.user?.id) {
           tg.ready();
           tg.expand();
-          
-          const user = tg.initDataUnsafe?.user;
-          if (user?.id) {
-            console.log("Telegram UID detected:", user.id);
-            const uidStr = user.id.toString();
-            setUserId(uidStr);
-            fetchData(uidStr);
-          } else {
-            console.warn("No Telegram User detected in initDataUnsafe. Sync will fail.");
+          const uidStr = tg.initDataUnsafe.user.id.toString();
+          setUserId(uidStr);
+          fetchData(uidStr);
+        } else {
+          // Fallback: get userId from URL param for testing
+          // e.g. https://tonpilot.vercel.app/dashboard?uid=123456
+          const params = new URLSearchParams(window.location.search);
+          const uid = params.get("uid");
+          if (uid) {
+            setUserId(uid);
+            fetchData(uid);
           }
         }
       } catch (e) {
@@ -204,9 +231,61 @@ export default function ArcticDashboard() {
   const copyAddress = () => {
     if (walletAddress && typeof window !== "undefined") {
       navigator.clipboard.writeText(walletAddress);
-      if (WebApp?.HapticFeedback) {
-        WebApp.HapticFeedback.notificationOccurred("success");
+      
+      try {
+        if ((window as any).Telegram?.WebApp?.HapticFeedback) {
+          (window as any).Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+        }
+      } catch (e) {}
+
+      // Show temporary alert/toast for copies if not in TG
+      const btn = document.getElementById("copy-btn-text");
+      if (btn) {
+        const orig = btn.innerText;
+        btn.innerText = "Copied!";
+        setTimeout(() => btn.innerText = orig, 2000);
       }
+    }
+  };
+
+  const handleWithdraw = async () => {
+    if (!withdrawAddress || !withdrawAmount) return;
+    const amountVal = parseFloat(withdrawAmount);
+    if (isNaN(amountVal) || amountVal <= 0 || amountVal > balance) {
+      setWithdrawError("Invalid amount or insufficient balance.");
+      return;
+    }
+
+    setWithdrawing(true);
+    setWithdrawError(null);
+
+    try {
+      const res = await fetch("/api/wallet/withdraw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          toAddress: withdrawAddress,
+          amount: amountVal,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Withdrawal failed");
+
+      setWithdrawSuccess(true);
+      setTimeout(() => {
+        setWithdrawSuccess(false);
+        setShowWithdraw(false);
+        setWithdrawAddress("");
+        setWithdrawAmount("");
+        if (userId) fetchData(userId);
+      }, 2000);
+
+    } catch (err: any) {
+      setWithdrawError(err.message || "An unknown error occurred");
+    } finally {
+      setWithdrawing(false);
     }
   };
 
@@ -244,20 +323,21 @@ export default function ArcticDashboard() {
 
           <div className="flex gap-2 mt-8">
             <button 
-              onClick={copyAddress}
+              onClick={() => setShowFund(true)}
               className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl py-3 font-mono text-xs font-bold transition-all flex items-center justify-center gap-2"
             >
               <ArrowDownLeft className="w-4 h-4" /> Fund
             </button>
             <button 
-              onClick={() => WebApp.showAlert("Withdrawals coming soon! You can also use /export to get your mnemonic.")}
+              onClick={() => setShowWithdraw(true)}
               className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl py-3 font-mono text-xs font-bold transition-all flex items-center justify-center gap-2"
             >
               <ArrowUpRight className="w-4 h-4" /> Withdraw
             </button>
             <button 
-              onClick={() => userId && fetchData(userId)}
-              className="w-12 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl py-3 flex items-center justify-center transition-all active:rotate-180"
+              onClick={() => router.push("/dashboard/templates")}
+              title="Quick Rule"
+              className="w-12 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl py-3 flex items-center justify-center transition-all active:scale-95"
             >
               <Zap className="w-4 h-4" />
             </button>
@@ -267,13 +347,32 @@ export default function ArcticDashboard() {
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: "Active", val: rules.filter(r => r.status === "active").length },
-          { label: "Done", val: logs.filter(l => l.status === "success").length },
-          { label: "Next", val: rules.find(r => r.status === "active")?.next_run_at ? formatRelativeTime(rules.find(r => r.status === "active")!.next_run_at!) : "None" }
-        ].map((s, i) => (
-          <div key={i} className="bg-white border border-[#e0e8ff] rounded-2xl p-3 text-center">
-            <p className="font-mono text-[9px] text-[#94a3b8] uppercase tracking-wider mb-1">{s.label}</p>
+        {(() => {
+          const activeRules = rules.filter(r => r.status === "active");
+          const nextRule = activeRules
+            .filter(r => r.next_run_at && new Date(r.next_run_at) > new Date())
+            .sort((a, b) => 
+              new Date(a.next_run_at!).getTime() - 
+              new Date(b.next_run_at!).getTime()
+            )[0];
+
+          return [
+            { label: "Active", val: activeRules.length },
+            { label: "Done", val: logs.filter(l => l.status === "success").length },
+            { 
+              label: nextRule ? nextRule.name : "No upcoming rules", 
+              val: nextRule ? nextRunText(nextRule.next_run_at) : "—",
+              isNext: true 
+            }
+          ];
+        })().map((s: any, i) => (
+          <div key={i} className="bg-white border border-[#e0e8ff] rounded-2xl p-3 text-center overflow-hidden">
+            <p 
+              className="font-mono text-[9px] text-[#94a3b8] uppercase tracking-wider mb-1"
+              style={s.isNext ? { fontSize: 10, color: "#94a3b8", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" } : {}}
+            >
+              {s.label}
+            </p>
             <p className="font-mono text-sm font-bold text-[#1a1a2e]">{s.val}</p>
           </div>
         ))}
@@ -634,6 +733,163 @@ export default function ArcticDashboard() {
           </div>
         )}
       </AnimatePresence>
+      {/* Fund Modal Bottom Sheet */}
+      <AnimatePresence>
+        {showFund && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col justify-end bg-[#1a1a2e]/40 backdrop-blur-sm"
+          >
+            <div className="absolute inset-0" onClick={() => setShowFund(false)} />
+            <motion.div 
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+              className="relative bg-white w-full rounded-t-[32px] p-6 pb-12 shadow-2xl"
+            >
+              <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6" />
+              <h2 className="text-2xl font-bold text-[#1a1a2e] mb-2">Fund Your Vault</h2>
+              <p className="text-[#64748b] text-sm mb-6 leading-relaxed">
+                Send TON to your vault address from any wallet (Tonkeeper, MyTonWallet, etc). Your balance updates automatically.
+              </p>
+
+              <div className="bg-[#f8faff] border border-[#e0e8ff] rounded-2xl p-4 mb-4">
+                <p className="font-mono text-xs text-[#1a1a2e] break-all leading-loose tracking-tight select-all">
+                  {walletAddress}
+                </p>
+                <button 
+                  onClick={copyAddress}
+                  className="mt-4 w-full flex items-center justify-center gap-2 bg-[#2563eb] text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition"
+                >
+                  <Copy className="w-4 h-4" /> <span id="copy-btn-text">Copy Address</span>
+                </button>
+              </div>
+
+              <p className="text-center text-[#94a3b8] text-xs mb-4">
+                Only send TON or Jettons to this address.<br />This is a TON testnet address.
+              </p>
+
+              {walletAddress && (
+                <a 
+                  href={`https://testnet.tonscan.org/address/${walletAddress}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block text-center text-[#2563eb] font-bold text-sm mb-6 hover:underline"
+                >
+                  View on Tonscan ↗
+                </a>
+              )}
+
+              <button 
+                onClick={() => setShowFund(false)}
+                className="w-full bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-sm hover:bg-slate-200 transition"
+              >
+                Close
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Withdraw Modal Bottom Sheet */}
+      <AnimatePresence>
+        {showWithdraw && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col justify-end bg-[#1a1a2e]/40 backdrop-blur-sm"
+          >
+            <div className="absolute inset-0" onClick={() => {
+              if(!withdrawing) setShowWithdraw(false);
+            }} />
+            <motion.div 
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+              className="relative bg-white w-full rounded-t-[32px] p-6 pb-12 shadow-2xl"
+            >
+              <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6" />
+              <h2 className="text-2xl font-bold text-[#1a1a2e] mb-6">Withdraw TON</h2>
+              
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-xs font-bold text-[#64748b] uppercase mb-1.5">Recipient Address</label>
+                  <input 
+                    type="text" 
+                    placeholder="UQBx...f3d2"
+                    value={withdrawAddress}
+                    onChange={(e) => setWithdrawAddress(e.target.value)}
+                    className="w-full bg-[#f8faff] border border-[#e0e8ff] focus:border-[#2563eb] rounded-xl px-4 py-3 outline-none transition font-mono text-sm"
+                    disabled={withdrawing || withdrawSuccess}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#64748b] uppercase mb-1.5">Amount (TON)</label>
+                  <input 
+                    type="number" 
+                    placeholder="0.00"
+                    value={withdrawAmount}
+                    onChange={(e) => setWithdrawAmount(e.target.value)}
+                    className="w-full bg-[#f8faff] border border-[#e0e8ff] focus:border-[#2563eb] rounded-xl px-4 py-3 outline-none transition font-mono text-sm"
+                    disabled={withdrawing || withdrawSuccess}
+                  />
+                  <div className="flex justify-between items-center mt-1.5">
+                    <p className="text-xs text-[#94a3b8]">Available: {balance.toFixed(2)} TON</p>
+                    <button 
+                      onClick={() => setWithdrawAmount(balance.toString())}
+                      className="text-[#2563eb] text-[10px] font-bold uppercase bg-blue-50 px-2 py-0.5 rounded-md"
+                      disabled={withdrawing || withdrawSuccess}
+                    >
+                      Max
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {withdrawError && (
+                <div className="bg-rose-50 text-rose-600 text-sm p-3 rounded-xl mb-4 font-medium flex items-center gap-2">
+                  <XCircle className="w-4 h-4 shrink-0" /> {withdrawError}
+                </div>
+              )}
+
+              {withdrawSuccess && (
+                <div className="bg-emerald-50 text-emerald-600 text-sm p-3 rounded-xl mb-4 font-medium flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" /> Withdrawal sent!
+                </div>
+              )}
+
+              <button 
+                onClick={handleWithdraw}
+                disabled={withdrawing || withdrawSuccess || !withdrawAddress || !withdrawAmount}
+                className="w-full bg-[#2563eb] text-white py-3.5 rounded-xl font-bold text-sm hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 mb-4 shadow-lg shadow-blue-200"
+              >
+                {withdrawing ? (
+                  <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Sending...</>
+                ) : (
+                  "Send Withdrawal"
+                )}
+              </button>
+
+              <p className="text-center text-[#94a3b8] text-xs mb-6">
+                Withdrawals are irreversible. Double-check the address before sending.
+              </p>
+
+              <button 
+                onClick={() => setShowWithdraw(false)}
+                disabled={withdrawing}
+                className="w-full bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-sm hover:bg-slate-200 transition disabled:opacity-50"
+              >
+                Close
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -652,6 +908,24 @@ function RuleCard({ rule, onToggle, onDelete, extended = false }: { rule: Rule, 
   };
 
   const theme = getTheme();
+
+  const nextRunDisplay = (rule: Rule) => {
+    if (!rule.next_run_at) return "—";
+    const next = new Date(rule.next_run_at);
+    const now = new Date();
+    if (next <= now) return "updating...";
+    
+    // Also show the actual time for context
+    const timeStr = next.toLocaleString("en-GB", {
+      weekday: "short",
+      hour: "2-digit", 
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "UTC"
+    }) + " UTC";
+    
+    return `${nextRunText(rule.next_run_at)} · ${timeStr}`;
+  };
 
   return (
     <div className={`bg-white border border-[#e0e8ff] rounded-[28px] p-5 shadow-sm transition-all hover:shadow-md hover:border-blue-100 group`}>
@@ -705,7 +979,7 @@ function RuleCard({ rule, onToggle, onDelete, extended = false }: { rule: Rule, 
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
             <span className="font-mono-jetbrains text-[8px] text-[#94a3b8] uppercase">Next Run</span>
-            <span className="font-mono-jetbrains text-[10px] font-bold text-[#1a1a2e]">{rule.status === "active" && rule.next_run_at ? formatRelativeTime(rule.next_run_at) : "--"}</span>
+            <span className="font-mono-jetbrains text-[10px] font-bold text-[#1a1a2e]">{rule.status === "active" ? nextRunDisplay(rule) : "--"}</span>
           </div>
           {extended && (rule.streak_count > 0 || rule.run_count > 0) && (
             <div className="flex flex-col">

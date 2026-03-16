@@ -127,7 +127,9 @@ bot.callbackQuery("create_wallet", async (ctx) => {
       })
       .eq("id", telegramId);
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
+    const baseUrl = appUrl.replace(/\/dashboard\/?$/, "").replace(/\/$/, "");
+    const dashboardUrl = `${baseUrl}/dashboard?uid=${telegramId}`;
 
     await ctx.reply(
       `✅ *Vault Created!*\n\n` +
@@ -140,7 +142,7 @@ bot.callbackQuery("create_wallet", async (ctx) => {
       {
         parse_mode: "Markdown",
         reply_markup: new InlineKeyboard()
-          .text("📊 Open Dashboard", "open_dashboard")
+          .webApp("📊 Open Dashboard", dashboardUrl)
           .row()
           .text("💡 See examples", "show_examples"),
       }
@@ -154,8 +156,10 @@ bot.callbackQuery("create_wallet", async (ctx) => {
 // ── Dashboard Command ──────────────────────────────────────────────────────
 
 bot.command("dashboard", async (ctx) => {
+  const telegramId = ctx.from?.id?.toString();
   const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
-  const dashboardUrl = rawUrl.endsWith("/dashboard") ? rawUrl : `${rawUrl}/dashboard`;
+  const baseUrl = rawUrl.replace(/\/dashboard\/?$/, "").replace(/\/$/, "");
+  const dashboardUrl = `${baseUrl}/dashboard?uid=${telegramId}`;
   await ctx.reply("📊 Your *TonPilot Dashboard* is ready.\n\n_Tip: You can also use the bottom-left menu button for one-tap access anytime._", {
     parse_mode: "Markdown",
     reply_markup: new InlineKeyboard().webApp(
@@ -167,8 +171,10 @@ bot.command("dashboard", async (ctx) => {
 
 bot.callbackQuery("open_dashboard", async (ctx) => {
   await ctx.answerCallbackQuery();
+  const telegramId = ctx.from.id.toString();
   const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
-  const dashboardUrl = rawUrl.endsWith("/dashboard") ? rawUrl : `${rawUrl}/dashboard`;
+  const baseUrl = rawUrl.replace(/\/dashboard\/?$/, "").replace(/\/$/, "");
+  const dashboardUrl = `${baseUrl}/dashboard?uid=${telegramId}`;
   await ctx.reply("📊 Open your TonPilot dashboard:", {
     reply_markup: new InlineKeyboard().webApp(
       "Open Dashboard →",
@@ -540,7 +546,8 @@ bot.command("rules", async (ctx) => {
     .join("\n\n");
 
   const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
-  const dashboardUrl = rawUrl.endsWith("/dashboard") ? rawUrl : `${rawUrl}/dashboard`;
+  const baseUrl = rawUrl.replace(/\/dashboard\/?$/, "").replace(/\/$/, "");
+  const dashboardUrl = `${baseUrl}/dashboard?uid=${telegramId}`;
 
   await ctx.reply(
     `📋 *Your Active Rules (${rules.length})*\n\n${ruleList}\n\nTo pause a rule: /pause <id>\nTo delete: /delete <id>`,
@@ -644,6 +651,27 @@ bot.callbackQuery("cancel_export", async (ctx) => {
   await ctx.editMessageText("Export cancelled. Your phrase remains safely hidden.");
 });
 
+// ── /faucet ──────────────────────────────────────────────────────────────────
+
+bot.command("faucet", async (ctx) => {
+  await ctx.reply(
+    `🚰 *TON Testnet Faucet*\n\n` +
+    `Need test TON to try TonPilot? Get free testnet ` +
+    `TON in seconds:\n\n` +
+    `1️⃣ Copy your vault address with /wallet\n` +
+    `2️⃣ Open the faucet bot below\n` +
+    `3️⃣ Paste your address and receive 2 TON instantly\n\n` +
+    `_You can request more every few hours._`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: new InlineKeyboard()
+        .url("🚰 Open Faucet Bot", "https://t.me/testgiver_ton_bot")
+        .row()
+        .url("🔍 View on Tonscan", `https://testnet.tonscan.org`),
+    }
+  );
+});
+
 // ── /help ────────────────────────────────────────────────────────────────────
 
 bot.command("help", async (ctx) => {
@@ -658,6 +686,7 @@ bot.command("help", async (ctx) => {
       `/delete <id> — Delete a rule\n` +
       `/templates — Browse quick start templates\n` +
       `/export — Securely export your seed phrase\n` +
+      `/faucet — Get free testnet TON for testing\n` +
       `/help — Show this message\n\n` +
       `Or just *tell me what to automate*!`,
     { parse_mode: "Markdown" }
@@ -799,7 +828,8 @@ bot.callbackQuery(/^confirm_rule:(.+)$/, async (ctx) => {
       .eq("id", pending.id);
 
     const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
-    const dashboardUrl = rawUrl.endsWith("/dashboard") ? rawUrl : `${rawUrl}/dashboard`;
+    const baseUrl = rawUrl.replace(/\/dashboard\/?$/, "").replace(/\/$/, "");
+    const dashboardUrl = `${baseUrl}/dashboard?uid=${telegramId}`;
 
     await ctx.editMessageText(
       `✅ <b>Rule activated!</b> "${pending.name}" is now live.\n\nI'll notify you every time it runs.`,
@@ -836,10 +866,10 @@ bot.callbackQuery("cancel_rule", async (ctx) => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function mainMenu() {
+function mainMenu(telegramId?: string) {
   const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
   const baseUrl = rawUrl.replace(/\/dashboard\/?$/, "").replace(/\/$/, "");
-  const dashboardUrl = `${baseUrl}/dashboard`;
+  const dashboardUrl = telegramId ? `${baseUrl}/dashboard?uid=${telegramId}` : `${baseUrl}/dashboard`;
 
   return new InlineKeyboard()
     .webApp("📊 Dashboard", dashboardUrl)
@@ -996,6 +1026,17 @@ export function computeNextRun(trigger: any): string {
     }
   }
 
+  // Ensure it's in the future
+  while (next <= now) {
+    if (dayOfWeek !== "*" && dayOfMonth === "*") {
+      next.setUTCDate(next.getUTCDate() + 7);
+    } else if (dayOfMonth !== "*" && dayOfWeek === "*") {
+      next.setUTCMonth(next.getUTCMonth() + 1);
+    } else {
+      next.setUTCDate(next.getUTCDate() + 1);
+    }
+  }
+
   return next.toISOString();
 }
 
@@ -1082,6 +1123,7 @@ bot.api.setMyCommands([
   { command: "wallet", description: "Check your vault balance" },
   { command: "history", description: "See your execution logs" },
   { command: "templates", description: "Browse quick start templates" },
+  { command: "faucet", description: "Get testnet TON for testing" },
   { command: "help", description: "Show help and examples" },
 ]).catch(console.error);
 
