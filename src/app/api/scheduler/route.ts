@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getTonBalance, getTonPrice, executeMcpAction } from "@/lib/ton";
 import { Rule, User, ScheduleTrigger, PriceTrigger, BalanceTrigger } from "@/types";
-import { bot, decryptMnemonic } from "@/lib/bot";
+import { bot, decryptMnemonic, computeNextRun } from "@/lib/bot";
 import { sendWeeklyReports } from "@/lib/weekly-report";
 import cronParser from "cron-parser";
 
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
         const updateData: any = {
           run_count: rule.run_count + 1,
           last_run_at: new Date().toISOString(),
-          next_run_at: computeNextRun(rule),
+          next_run_at: computeNextRun(rule.trigger),
         };
 
         if (execResult.success) {
@@ -189,23 +189,7 @@ function isCronDue(cron: string): boolean {
 
 // ── Next Run Computation ──────────────────────────────────────────────────────
 
-function computeNextRun(rule: Rule): string | null {
-  // Price/balance triggers are continuous — they check every run
-  if (rule.trigger.type !== "schedule") return new Date().toISOString();
-
-  // For schedule triggers, use cron-parser for accurate next run time
-  try {
-    const t = rule.trigger as ScheduleTrigger;
-    const interval = cronParser.parse(t.cron);
-    return interval.next().toISOString();
-  } catch (err) {
-    console.error("Cron parse error", err);
-    // fallback
-    const next = new Date();
-    next.setMinutes(next.getMinutes() + 1);
-    return next.toISOString();
-  }
-}
+// computeNextRun imported from bot.ts
 
 // ── Telegram Notifications ────────────────────────────────────────────────────
 

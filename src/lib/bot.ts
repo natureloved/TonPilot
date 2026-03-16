@@ -255,9 +255,8 @@ bot.callbackQuery("show_wallet", async (ctx) => {
 
 bot.command("templates", async (ctx) => {
   const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
-  const templatesUrl = rawUrl.endsWith("/") 
-    ? `${rawUrl}dashboard/templates` 
-    : `${rawUrl}/dashboard/templates`;
+  const baseUrl = rawUrl.replace(/\/dashboard\/?$/, "").replace(/\/$/, "");
+  const templatesUrl = `${baseUrl}/dashboard/templates`;
 
   await ctx.reply(
     `⚡ *Quick Start Templates*\n\n` +
@@ -839,7 +838,8 @@ bot.callbackQuery("cancel_rule", async (ctx) => {
 
 function mainMenu() {
   const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
-  const dashboardUrl = rawUrl.endsWith("/dashboard") ? rawUrl : `${rawUrl}/dashboard`;
+  const baseUrl = rawUrl.replace(/\/dashboard\/?$/, "").replace(/\/$/, "");
+  const dashboardUrl = `${baseUrl}/dashboard`;
 
   return new InlineKeyboard()
     .webApp("📊 Dashboard", dashboardUrl)
@@ -955,13 +955,48 @@ function decodeRulePayload(encoded: string): any {
   return JSON.parse(Buffer.from(encoded, "base64url").toString());
 }
 
-function computeNextRun(trigger: any): string | null {
-  // For price/balance triggers, next_run is continuous (set to now)
-  if (trigger.type !== "schedule") return new Date().toISOString();
+export function computeNextRun(trigger: any): string {
+  if (trigger.type !== "schedule") {
+    return new Date().toISOString();
+  }
 
-  // For schedule triggers, compute from cron
-  // We'll use a simple placeholder — the scheduler will correct this on first check
-  return new Date().toISOString();
+  const cron = trigger.cron;
+  const parts = cron.trim().split(/\s+/);
+  const [minute, hour, dayOfMonth, , dayOfWeek] = parts;
+
+  const now = new Date();
+  const next = new Date();
+  next.setUTCSeconds(0, 0);
+
+  const targetMinute = parseInt(minute);
+  const targetHour = parseInt(hour);
+
+  // Set to next occurrence of this hour:minute
+  next.setUTCHours(targetHour, targetMinute, 0, 0);
+
+  // If that time already passed today, move to tomorrow
+  if (next <= now) {
+    next.setUTCDate(next.getUTCDate() + 1);
+  }
+
+  // If dayOfWeek is specified, advance to next matching day
+  if (dayOfWeek !== "*") {
+    const targetDay = parseInt(dayOfWeek);
+    while (next.getUTCDay() !== targetDay) {
+      next.setUTCDate(next.getUTCDate() + 1);
+    }
+  }
+
+  // If dayOfMonth is specified
+  if (dayOfMonth !== "*") {
+    const targetDate = parseInt(dayOfMonth);
+    next.setUTCDate(targetDate);
+    if (next <= now) {
+      next.setUTCMonth(next.getUTCMonth() + 1);
+    }
+  }
+
+  return next.toISOString();
 }
 
 function formatRelativeTime(dateInput: Date | string): string {
