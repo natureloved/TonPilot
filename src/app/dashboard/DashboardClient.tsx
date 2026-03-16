@@ -216,13 +216,22 @@ export default function ArcticDashboard() {
           </div>
 
           <div className="flex gap-2 mt-8">
-            <button className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl py-3 font-mono text-xs font-bold transition-all flex items-center justify-center gap-2">
+            <button 
+              onClick={copyAddress}
+              className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl py-3 font-mono text-xs font-bold transition-all flex items-center justify-center gap-2"
+            >
               <ArrowDownLeft className="w-4 h-4" /> Fund
             </button>
-            <button className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl py-3 font-mono text-xs font-bold transition-all flex items-center justify-center gap-2">
+            <button 
+              onClick={() => WebApp.showAlert("Withdrawals coming soon! You can also use /export to get your mnemonic.")}
+              className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl py-3 font-mono text-xs font-bold transition-all flex items-center justify-center gap-2"
+            >
               <ArrowUpRight className="w-4 h-4" /> Withdraw
             </button>
-            <button className="w-12 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl py-3 flex items-center justify-center">
+            <button 
+              onClick={() => userId && fetchData(userId)}
+              className="w-12 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl py-3 flex items-center justify-center transition-all active:rotate-180"
+            >
               <Zap className="w-4 h-4" />
             </button>
           </div>
