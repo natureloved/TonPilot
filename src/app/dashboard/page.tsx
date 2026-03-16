@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import WebApp from "@twa-dev/sdk";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -57,6 +58,8 @@ const truncateAddr = (addr: string) => addr ? `${addr.slice(0, 6)}...${addr.slic
 // ── Components ───────────────────────────────────────────────────────────────
 
 export default function ArcticDashboard() {
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -121,6 +124,7 @@ export default function ArcticDashboard() {
   }, []);
 
   useEffect(() => {
+    setMounted(true);
     if (typeof window !== "undefined") {
       const tg = WebApp;
       tg.ready();
@@ -130,13 +134,11 @@ export default function ArcticDashboard() {
       if (user) {
         setUserId(user.id.toString());
         fetchData(user.id.toString());
-      } else {
-        // Dev fallback
-        // setUserId("8633201368");
-        // fetchData("8633201368");
       }
     }
   }, [fetchData]);
+
+  if (!mounted) return null;
 
   const toggleRule = async (rule: Rule) => {
     const newStatus = rule.status === "active" ? "paused" : "active";
@@ -250,7 +252,7 @@ export default function ArcticDashboard() {
             </div>
             <p className="text-sm text-[#94a3b8]">Create your first rule to start automating</p>
             <button 
-              onClick={() => window.location.href = "/dashboard/templates"}
+              onClick={() => router.push("/dashboard/templates")}
               className="bg-[#2563eb] text-white px-6 py-2.5 rounded-full font-bold text-xs shadow-lg shadow-blue-100"
             >
               + Create Rule
@@ -306,7 +308,7 @@ export default function ArcticDashboard() {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-[#1a1a2e]">Automation Rules</h2>
         <button 
-          onClick={() => window.location.href = "/dashboard/templates"}
+          onClick={() => router.push("/dashboard/templates")}
           className="bg-[#2563eb] text-white px-4 py-2 rounded-full font-bold text-xs"
         >
           + New
@@ -402,7 +404,7 @@ export default function ArcticDashboard() {
 
       <div className="bg-white border border-[#e0e8ff] rounded-[24px] divide-y divide-[#e0e8ff]">
         <button 
-          onClick={() => window.location.href = "/dashboard/templates"}
+          onClick={() => router.push("/dashboard/templates")}
           className="w-full px-6 py-5 flex justify-between items-center hover:bg-[#f8faff] transition-all group"
         >
           <div className="flex items-center gap-3">
@@ -495,7 +497,7 @@ export default function ArcticDashboard() {
       {/* Scrollable Floating Action Button */}
       {(activeTab === "home" || activeTab === "rules") && !loading && (
         <button 
-          onClick={() => window.location.href = "/dashboard/templates"}
+          onClick={() => router.push("/dashboard/templates")}
           className="fixed right-6 bottom-28 w-14 h-14 bg-[#2563eb] text-white rounded-full flex items-center justify-center shadow-2xl shadow-blue-400 z-50 active:scale-90 transition-transform"
         >
           <Plus className="w-7 h-7" />
