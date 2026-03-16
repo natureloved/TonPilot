@@ -210,6 +210,71 @@ bot.command("templates", async (ctx) => {
   );
 });
 
+// ── /pulse ──────────────────────────────────────────────────────────────────
+
+bot.command("pulse", async (ctx) => {
+  const telegramId = ctx.from?.id?.toString();
+  if (!telegramId) return;
+
+  await ctx.replyWithChatAction("typing");
+
+  const { data: user } = await supabaseAdmin
+    .from("users")
+    .select("wallet_address")
+    .eq("id", telegramId)
+    .single();
+
+  if (!user?.wallet_address) {
+    await ctx.reply("No vault found. Use /start to create one.");
+    return;
+  }
+
+  const { getTonBalance, getTonPrice } = await import("@/lib/ton");
+  
+  // 1. Fetch balance & price in parallel
+  const [balance, price] = await Promise.all([
+    getTonBalance(user.wallet_address),
+    getTonPrice(),
+  ]);
+
+  // 2. Fetch active rules count
+  const { count } = await supabaseAdmin
+    .from("rules")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", telegramId)
+    .eq("status", "active");
+
+  // 3. Fetch next upcoming rule
+  const { data: nextRules } = await supabaseAdmin
+    .from("rules")
+    .select("name, next_run_at")
+    .eq("user_id", telegramId)
+    .eq("status", "active")
+    .not("next_run_at", "is", null)
+    .order("next_run_at", { ascending: true })
+    .limit(1);
+
+  const nextRule = nextRules?.[0];
+  const nextRuleText = nextRule 
+    ? `_${nextRule.name}_ · ${formatRelativeTime(new Date(nextRule.next_run_at!))}`
+    : "No upcoming runs";
+
+  const usdValue = (balance * price).toFixed(2);
+  const currentTime = new Date().toUTCString();
+
+  await ctx.reply(
+    `📡 *Market Pulse*\n\n` +
+      `💎 TON Price: *$${price.toFixed(4)}*\n` +
+      `\n` +
+      `💼 *Your Vault*\n` +
+      `Balance: *${balance.toFixed(2)} TON* (~$${usdValue})\n` +
+      `Active rules: *${count ?? 0}*\n` +
+      `Next autopilot run: ${nextRuleText}\n\n` +
+      `_Last updated: ${currentTime}_`,
+    { parse_mode: "Markdown" }
+  );
+});
+
 // ── /rules ───────────────────────────────────────────────────────────────────
 
 bot.command("rules", async (ctx) => {
@@ -349,10 +414,12 @@ bot.command("help", async (ctx) => {
   await ctx.reply(
     `✈️ *TonPilot Commands*\n\n` +
       `/start — Set up or return to TonPilot\n` +
+      `/pulse — Live vault and market snapshot\n` +
       `/wallet — Check your vault balance\n` +
       `/rules — See your active rules\n` +
       `/pause <id> — Pause a rule\n` +
-      `/delete <id> — Delete a rule\n` +
+      `/templates — Browse quick start templates\n` +
+      `/export — Securely export your seed phrase\n` +
       `/help — Show this message\n\n` +
       `Or just *tell me what to automate*!`,
     { parse_mode: "Markdown" }
@@ -530,4 +597,16 @@ function computeNextRun(trigger: any): string | null {
   // For schedule triggers, compute from cron
   // We'll use a simple placeholder — the scheduler will correct this on first check
   return new Date().toISOString();
+}
+
+function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 60) return `in ${diffMins}m`;
+  if (diffHours < 24) return `in ${diffHours}h`;
+  return `in ${diffDays}d`;
 }

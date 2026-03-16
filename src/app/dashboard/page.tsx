@@ -3,20 +3,9 @@
 import { useState, useEffect } from "react";
 import WebApp from "@twa-dev/sdk";
 import { motion, AnimatePresence, Variants } from "framer-motion";
-import { 
-  Wallet, 
-  Play,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Plus,
-  Home,
-  List,
-  Activity,
-  Settings,
-  RefreshCw
-} from "lucide-react";
-import type { Rule } from "@/types";
+import { Wallet, Play, CheckCircle2, XCircle, Clock, Plus, Home, List, Activity, Settings, RefreshCw, Power } from "lucide-react";
+import type { Rule, ExecutionLog } from "@/types";
+import { supabase } from "@/lib/supabase";
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("home");
@@ -28,7 +17,8 @@ export default function Dashboard() {
   const [tonBalance, setTonBalance] = useState<number>(0);
   const [usdBalance, setUsdBalance] = useState<number>(0);
   const [rules, setRules] = useState<Rule[]>([]);
-  const [activities, setActivities] = useState<any[]>([]); // Using any for logs since we don't fetch them yet
+  const [activities, setActivities] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // 1. Initialize Telegram WebApp
@@ -54,16 +44,17 @@ export default function Dashboard() {
     if (!userId) return;
 
     const fetchDashboardData = async () => {
+      setLoading(true);
       try {
-        // Fetch Rules and Wallet in parallel
-        const [rulesRes, walletRes] = await Promise.all([
-          fetch(`/api/rules?userId=${userId}`),
-          fetch(`/api/wallet?userId=${userId}`)
+        // Fetch Rules, Wallet, and Logs
+        const [rulesRes, walletRes, logsRes] = await Promise.all([
+          supabase.from("rules").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
+          fetch(`/api/wallet?userId=${userId}`),
+          supabase.from("execution_logs").select("*, rules(name)").eq("user_id", userId).order("executed_at", { ascending: false }).limit(10)
         ]);
 
-        if (rulesRes.ok) {
-          const rulesData = await rulesRes.json();
-          setRules(rulesData.rules);
+        if (rulesRes.data) {
+          setRules(rulesRes.data as Rule[]);
         }
 
         if (walletRes.ok) {
@@ -71,13 +62,37 @@ export default function Dashboard() {
           setTonBalance(walletData.balance);
           setUsdBalance(walletData.usdValue);
         }
+
+        if (logsRes.data) {
+          setActivities(logsRes.data);
+        }
       } catch (err) {
         console.error("Failed to load live data", err);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchDashboardData();
   }, [userId]);
+
+  const toggleRule = async (ruleId: string, currentStatus: string) => {
+    const newStatus = currentStatus === "active" ? "paused" : "active";
+    
+    // Optimistic update
+    setRules(prev => prev.map(r => r.id === ruleId ? { ...r, status: newStatus } : r));
+
+    const { error } = await supabase
+      .from("rules")
+      .update({ status: newStatus })
+      .eq("id", ruleId);
+
+    if (error) {
+      console.error("Failed to toggle rule", error);
+      // Revert on error
+      setRules(prev => prev.map(r => r.id === ruleId ? { ...r, status: currentStatus } : r));
+    }
+  };
 
   // Framer Motion Variants
   const containerVariants: Variants = {
@@ -155,37 +170,60 @@ export default function Dashboard() {
               <motion.section variants={itemVariants}>
                 <div className="flex justify-between items-end mb-4 px-2">
                   <h3 className="text-lg font-bold text-white">Active Rules</h3>
-                  <button className="text-sm text-[#0098EA] font-medium flex items-center gap-1 hover:text-blue-300 transition-colors bg-[#0098EA]/10 px-3 py-1.5 rounded-full">
+                  <button 
+                    onClick={() => window.location.href = '/dashboard/templates'}
+                    className="text-sm text-[#0098EA] font-medium flex items-center gap-1 hover:text-blue-300 transition-colors bg-[#0098EA]/10 px-3 py-1.5 rounded-full"
+                  >
                     <Plus className="w-3.5 h-3.5" /> New
                   </button>
                 </div>
                 
                 {rules.length === 0 ? (
-                  <div className="glass-panel p-6 text-center">
-                    <p className="text-sm text-gray-400">No active rules yet.</p>
+                  <div className="glass-panel p-8 text-center flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
+                      <Clock className="w-6 h-6 text-gray-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400">No active rules yet.</p>
+                      <button 
+                        onClick={() => window.location.href = '/dashboard/templates'}
+                        className="mt-4 text-xs bg-gradient-to-r from-[#0098EA] to-[#818CF8] text-white px-6 py-2.5 rounded-full font-bold shadow-lg"
+                      >
+                        + New Rule
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {rules.slice(0, 3).map((rule, idx) => (
+                    {rules.map((rule, idx) => (
                       <motion.div 
                         key={rule.id} 
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.2 + (idx * 0.1) }}
-                        className="glass-panel p-4 flex items-center justify-between group hover:bg-white/5 cursor-pointer active:scale-[0.98] transition-all duration-300"
+                        transition={{ delay: 0.1 + (idx * 0.05) }}
+                        className="glass-panel p-4 flex items-center justify-between group hover:bg-white/5 transition-all duration-300"
                       >
                         <div className="flex items-center gap-4">
                           <div className={`w-11 h-11 rounded-[14px] flex items-center justify-center transition-all ${rule.status === 'active' ? 'bg-gradient-to-tr from-[#0098EA]/20 to-[#818CF8]/20 text-[#818CF8] shadow-[0_0_15px_rgba(0,152,234,0.2)]' : 'bg-gray-800/50 text-gray-500'}`}>
-                            <Play className="w-5 h-5 ml-0.5" />
+                            {rule.action.type === 'swap' ? <RefreshCw className="w-5 h-5" /> : rule.action.type === 'send' ? <Play className="w-5 h-5 ml-0.5 rotate-[-90deg]" /> : <CheckCircle2 className="w-5 h-5" />}
                           </div>
                           <div>
-                            <h4 className="font-semibold text-white truncate max-w-[180px]">{rule.name}</h4>
-                            <p className="text-xs text-gray-400 mt-0.5 uppercase tracking-wide">
-                              {rule.trigger.type.replace("_", " ")}
+                            <h4 className="font-semibold text-white truncate max-w-[150px]">{rule.name}</h4>
+                            <p className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wide">
+                              {rule.trigger.type === 'schedule' ? `Every ${rule.trigger.cron}` : rule.trigger.type.replace("_", " ")}
+                              {rule.next_run_at && rule.status === 'active' && ` • Next: ${formatTimeDist(new Date(rule.next_run_at))}`}
                             </p>
                           </div>
                         </div>
-                        <div className={`w-2.5 h-2.5 rounded-full shadow-sm ${rule.status === 'active' ? 'bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]' : 'bg-gray-600'}`}></div>
+                        <button 
+                          onClick={() => toggleRule(rule.id, rule.status)}
+                          className={`w-12 h-6 rounded-full relative transition-colors duration-300 flex items-center px-1 ${rule.status === 'active' ? 'bg-green-500/30 border border-green-500/50' : 'bg-white/10 border border-white/10'}`}
+                        >
+                          <motion.div 
+                            animate={{ x: rule.status === 'active' ? 24 : 0 }}
+                            className={`w-4 h-4 rounded-full shadow-md ${rule.status === 'active' ? 'bg-green-400' : 'bg-gray-500'}`}
+                          />
+                        </button>
                       </motion.div>
                     ))}
                   </div>
@@ -197,12 +235,36 @@ export default function Dashboard() {
                 <div className="flex justify-between items-end mb-4 px-2">
                   <h3 className="text-lg font-bold text-white">Recent Logs</h3>
                 </div>
-                <div className="glass-panel p-5">
+                <div className="glass-panel p-0 overflow-hidden">
                    {activities.length === 0 ? (
-                     <p className="text-sm text-gray-500 text-center py-4">No recent executions.</p>
+                     <p className="text-sm text-gray-500 text-center py-10 italic">No recent executions.</p>
                    ) : (
-                     <div className="space-y-5">
-                       {/* Activity list would go here */}
+                     <div className="divide-y divide-white/5">
+                       {activities.map((log: ExecutionLog & { rules: { name: string } }, idx: number) => (
+                         <div key={log.id} className="p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
+                           <div className="flex items-center gap-3">
+                             <div className={`w-2 h-2 rounded-full ${log.status === 'success' ? 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.4)]' : 'bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.4)]'}`}></div>
+                             <div>
+                               <p className="text-sm font-medium text-white">{log.rules?.name || "Unknown Rule"}</p>
+                               <p className="text-[10px] text-gray-500">
+                                 {formatTimeDist(new Date(log.executed_at))}
+                               </p>
+                             </div>
+                           </div>
+                           {log.tx_hash ? (
+                             <a 
+                               href={`https://testnet.tonscan.org/tx/${log.tx_hash}`} 
+                               target="_blank" 
+                               rel="noopener noreferrer"
+                               className="text-[10px] font-bold text-[#0098EA] hover:text-blue-300 flex items-center gap-1"
+                             >
+                               View tx <Plus className="w-2.5 h-2.5 rotate-45" />
+                             </a>
+                           ) : log.error_message ? (
+                             <span className="text-[10px] text-red-400/80 truncate max-w-[100px] italic">{log.error_message}</span>
+                           ) : null}
+                         </div>
+                       ))}
                      </div>
                    )}
                 </div>
@@ -269,4 +331,21 @@ function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode, labe
       </span>
     </button>
   );
+}
+
+function formatTimeDist(date: Date): string {
+  const now = new Date();
+  const diffMs = Math.abs(date.getTime() - now.getTime());
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  const suffix = date.getTime() > now.getTime() ? "" : " ago";
+  const prefix = date.getTime() > now.getTime() ? "in " : "";
+
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${prefix}${diffMins}m${suffix}`;
+  if (diffHours < 24) return `${prefix}${diffHours}h${suffix}`;
+  if (diffDays === 1) return date.getTime() > now.getTime() ? "tomorrow" : "yesterday";
+  return `${prefix}${diffDays}d${suffix}`;
 }
