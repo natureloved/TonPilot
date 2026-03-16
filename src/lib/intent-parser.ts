@@ -70,7 +70,7 @@ Alert-only action:
 export async function parseIntent(userMessage: string): Promise<ParsedIntent> {
   try {
     const response = await client.messages.create({
-      model: "claude-3-5-sonnet-20240620",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 500,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
@@ -79,16 +79,18 @@ export async function parseIntent(userMessage: string): Promise<ParsedIntent> {
     let raw = response.content[0].type === "text" ? response.content[0].text : "";
     console.log("[parseIntent] Raw response from Claude:", raw);
 
-    // Strip markdown code blocks if present
-    if (raw.includes("```")) {
-      raw = raw.replace(/```json|```/g, "").trim();
-    }
+    const cleaned = raw
+      .trim()
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/```$/i, "")
+      .trim();
 
     try {
-      const parsed = JSON.parse(raw.trim());
+      const parsed = JSON.parse(cleaned);
       return parsed as ParsedIntent;
     } catch (parseErr) {
-      console.error("[parseIntent] JSON parse error. Raw content:", raw);
+      console.error("[parseIntent] JSON parse error. Cleaned content:", cleaned);
       return {
         success: false,
         error: "Failed to parse automation logic. Please try again.",

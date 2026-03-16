@@ -725,15 +725,15 @@ bot.on("message:text", async (ctx) => {
 
     await ctx.reply(
       `Got it — here's what I'll set up:\n\n` +
-        `📋 *${name}*\n` +
+        `📋 <b>${name}</b>\n` +
         `⚡ When: ${triggerDesc}\n` +
         `🎯 Do: ${actionDesc}\n\n` +
         `Shall I activate this rule?`,
-      { parse_mode: "Markdown", reply_markup: keyboard }
+      { parse_mode: "HTML", reply_markup: keyboard }
     );
   } catch (err: any) {
-    console.error("[Natural Language Handler] CRITICAL ERROR:", err);
-    await ctx.reply(`⚠️ I'm having trouble processing that right now.\n\nError: ${err.message || String(err)}`);
+    console.error("[Natural Language Handler] error:", err);
+    await ctx.reply("⚠️ I'm having trouble processing that right now. Please try again in a moment.");
   }
 });
 
@@ -804,7 +804,8 @@ function mainMenu() {
 function formatTrigger(trigger: any): string {
   switch (trigger.type) {
     case "schedule":
-      return `Scheduled (${trigger.cron}) UTC`;
+      const safeCron = trigger.cron.replace(/\*/g, "\\*");
+      return `Scheduled (${safeCron}) UTC`;
     case "price_above":
       return `When ${trigger.asset} price > $${trigger.threshold}`;
     case "price_below":
