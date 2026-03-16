@@ -144,14 +144,22 @@ export default function ArcticDashboard() {
     if (typeof window !== "undefined") {
       try {
         const tg = WebApp;
+        console.log("WebApp Debug:", {
+          user: tg.initDataUnsafe?.user,
+          platform: tg.platform
+        });
+
         if (tg && typeof tg.ready === 'function') {
           tg.ready();
           tg.expand();
           
           const user = tg.initDataUnsafe?.user;
           if (user) {
+            console.log("Telegram UID detected:", user.id);
             setUserId(user.id.toString());
             fetchData(user.id.toString());
+          } else {
+            console.warn("No Telegram User detected");
           }
         }
       } catch (e) {
@@ -159,6 +167,7 @@ export default function ArcticDashboard() {
       }
     }
   }, [fetchData]);
+
 
   if (!mounted) return null;
 
@@ -466,7 +475,39 @@ export default function ArcticDashboard() {
   return (
     <div className="min-h-screen arctic-theme pb-32">
       <div className="max-w-md mx-auto p-5">
-        {loading ? (
+        {!userId && !loading ? (
+          <div className="bg-white border border-rose-100 rounded-[32px] p-8 text-center space-y-4">
+            <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto text-rose-500">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+            <h3 className="font-bold text-[#1a1a2e]">Sync Error</h3>
+            <p className="text-sm text-[#94a3b8] leading-relaxed">
+              We couldn't detect your Telegram ID. Please make sure you are opening this from the official TonPilot bot.
+            </p>
+            <button 
+              onClick={() => WebApp.close()}
+              className="bg-slate-100 text-[#1a1a2e] px-8 py-3 rounded-full font-bold text-xs"
+            >
+              Back to Chat
+            </button>
+          </div>
+        ) : !walletAddress && !loading ? (
+          <div className="bg-white border border-blue-100 rounded-[32px] p-8 text-center space-y-4">
+            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto text-blue-500">
+              <Zap className="w-8 h-8" />
+            </div>
+            <h3 className="font-bold text-[#1a1a2e]">Create Your Vault</h3>
+            <p className="text-sm text-[#94a3b8] leading-relaxed">
+              It looks like you haven't set up your TonPilot vault yet. Head back to the bot to create your secure wallet.
+            </p>
+            <button 
+              onClick={() => WebApp.close()}
+              className="bg-[#2563eb] text-white px-8 py-3 rounded-full font-bold text-xs shadow-lg shadow-blue-100"
+            >
+              Go to Bot
+            </button>
+          </div>
+        ) : loading ? (
           <div className="space-y-6 animate-in fade-in duration-500">
             <Skeleton className="w-full h-48 rounded-[32px]" />
             <div className="grid grid-cols-3 gap-3">
@@ -481,6 +522,7 @@ export default function ArcticDashboard() {
             </div>
           </div>
         ) : (
+
           <>
             {activeTab === "home" && HomeTab()}
             {activeTab === "rules" && RulesTab()}

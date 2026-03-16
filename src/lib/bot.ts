@@ -196,10 +196,67 @@ bot.callbackQuery("show_examples", async (ctx) => {
   );
 });
 
+bot.callbackQuery("show_rules", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const telegramId = ctx.from?.id?.toString();
+  if (!telegramId) return;
+
+  const { data: rules } = await supabaseAdmin
+    .from("rules")
+    .select("*")
+    .eq("user_id", telegramId)
+    .eq("status", "active");
+
+  if (!rules || rules.length === 0) {
+    await ctx.reply("You have no active rules yet. Tell me what to automate!");
+    return;
+  }
+
+  const ruleList = (rules as Rule[])
+    .map(r => `• *${r.name}* (ID: \`${r.id.slice(0, 8)}\`)`)
+    .join("\n");
+
+  await ctx.reply(`📋 *Your Active Rules*\n\n${ruleList}\n\nUse /rules for full details.`, { parse_mode: "Markdown" });
+});
+
+bot.callbackQuery("show_wallet", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const telegramId = ctx.from?.id?.toString();
+  if (!telegramId) return;
+
+  const { data: user } = await supabaseAdmin
+    .from("users")
+    .select("wallet_address")
+    .eq("id", telegramId)
+    .single();
+
+  if (!user?.wallet_address) {
+    await ctx.reply("No vault found. Use /start to create one.");
+    return;
+  }
+
+  const { getTonBalance, getTonPrice } = await import("@/lib/ton");
+  const [balance, price] = await Promise.all([
+    getTonBalance(user.wallet_address),
+    getTonPrice(),
+  ]);
+
+  await ctx.reply(
+    `💼 *Your Vault*\n\n` +
+    `Address: \`${user.wallet_address}\`\n` +
+    `Balance: *${balance.toFixed(2)} TON* (~$${(balance * price).toFixed(2)})`,
+    { parse_mode: "Markdown" }
+  );
+});
+
+
 // ── /templates ───────────────────────────────────────────────────────────────
 
 bot.command("templates", async (ctx) => {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
+  const templatesUrl = rawUrl.endsWith("/") 
+    ? `${rawUrl}dashboard/templates` 
+    : `${rawUrl}/dashboard/templates`;
 
   await ctx.reply(
     `⚡ *Quick Start Templates*\n\n` +
@@ -213,13 +270,14 @@ bot.command("templates", async (ctx) => {
     `Tap below to open the template picker 👇`,
     {
       parse_mode: "Markdown",
-      reply_markup: new InlineKeyboard().url(
+      reply_markup: new InlineKeyboard().webApp(
         "⚡ Pick a Template →",
-        `${appUrl}/dashboard/templates`
+        templatesUrl
       ),
     }
   );
 });
+
 
 // ── /pulse ──────────────────────────────────────────────────────────────────
 
