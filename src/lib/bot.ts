@@ -731,9 +731,9 @@ bot.on("message:text", async (ctx) => {
         `Shall I activate this rule?`,
       { parse_mode: "Markdown", reply_markup: keyboard }
     );
-  } catch (err) {
-    console.error("[Natural Language Handler] error:", err);
-    await ctx.reply("⚠️ I'm having trouble processing that right now. Please try again in a moment.");
+  } catch (err: any) {
+    console.error("[Natural Language Handler] CRITICAL ERROR:", err);
+    await ctx.reply(`⚠️ I'm having trouble processing that right now.\n\nError: ${err.message || String(err)}`);
   }
 });
 
