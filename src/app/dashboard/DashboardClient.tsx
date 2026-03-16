@@ -75,46 +75,62 @@ export default function ArcticDashboard() {
     setLoading(true);
     try {
       // 1. Get Wallet Address from Supabase
-      const { data: user } = await supabase
+      const { data: user, error: userError } = await supabase
         .from("users")
         .select("wallet_address")
         .eq("id", uid)
         .single();
       
+      if (userError) {
+        console.warn("Supabase User Fetch Error (might not exist yet):", userError);
+      }
+      
       if (user?.wallet_address) {
         setWalletAddress(user.wallet_address);
         
-        // 2. Fetch Balance & Price from our new API routes
-        const [balRes, priceRes] = await Promise.all([
-          fetch(`/api/wallet?address=${user.wallet_address}`),
-          fetch(`/api/wallet/price`)
-        ]);
-        
-        const balData = await balRes.json();
-        const priceData = await priceRes.json();
-        
-        if (balData.balance !== undefined) setBalance(balData.balance);
-        if (priceData.price !== undefined) setPrice(priceData.price);
+        try {
+          // 2. Fetch Balance & Price from our new API routes
+          const [balRes, priceRes] = await Promise.all([
+            fetch(`/api/wallet?address=${user.wallet_address}`),
+            fetch(`/api/wallet/price`)
+          ]);
+          
+          if (balRes.ok) {
+            const balData = await balRes.json();
+            if (balData.balance !== undefined) setBalance(balData.balance);
+          }
+          
+          if (priceRes.ok) {
+            const priceData = await priceRes.json();
+            if (priceData.price !== undefined) setPrice(priceData.price);
+          }
+        } catch (apiErr) {
+          console.error("Wallet API Error:", apiErr);
+        }
       }
 
-      // 3. Fetch Rules
-      const { data: rulesData } = await supabase
-        .from("rules")
-        .select("*")
-        .eq("user_id", uid)
-        .order("created_at", { ascending: false });
-      
-      if (rulesData) setRules(rulesData);
+      try {
+        // 3. Fetch Rules
+        const { data: rulesData } = await supabase
+          .from("rules")
+          .select("*")
+          .eq("user_id", uid)
+          .order("created_at", { ascending: false });
+        
+        if (rulesData) setRules(rulesData);
 
-      // 4. Fetch Logs
-      const { data: logsData } = await supabase
-        .from("execution_logs")
-        .select("*, rules(name)")
-        .eq("user_id", uid)
-        .order("executed_at", { ascending: false })
-        .limit(20);
-      
-      if (logsData) setLogs(logsData);
+        // 4. Fetch Logs
+        const { data: logsData } = await supabase
+          .from("execution_logs")
+          .select("*, rules(name)")
+          .eq("user_id", uid)
+          .order("executed_at", { ascending: false })
+          .limit(20);
+        
+        if (logsData) setLogs(logsData);
+      } catch (dbErr) {
+        console.error("Database Fetch Error:", dbErr);
+      }
 
     } catch (err) {
       console.error("Dashboard Init Error:", err);
@@ -263,7 +279,7 @@ export default function ArcticDashboard() {
               onClick={() => router.push("/dashboard/templates")}
               className="bg-[#2563eb] text-white px-6 py-2.5 rounded-full font-bold text-xs shadow-lg shadow-blue-100"
             >
-              + Create Rule
+              + Browse Templates
             </button>
           </div>
         ) : (
