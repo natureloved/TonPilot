@@ -55,6 +55,8 @@ export interface Rule {
   action: Action;
   status: RuleStatus;
   run_count: number;
+  streak_count: number;
+  longest_streak: number;
   last_run_at: string | null;
   next_run_at: string | null;
   created_at: string;

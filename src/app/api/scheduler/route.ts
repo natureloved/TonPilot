@@ -65,14 +65,35 @@ export async function GET(req: NextRequest) {
           executed_at: new Date().toISOString(),
         });
 
-        // Update rule run count and next_run
+        // Update stats: increment streak on success, reset on failure
+        const updateData: any = {
+          run_count: rule.run_count + 1,
+          last_run_at: new Date().toISOString(),
+          next_run_at: computeNextRun(rule),
+        };
+
+        if (execResult.success) {
+          const newStreak = (rule.streak_count ?? 0) + 1;
+          const longestStreak = Math.max(newStreak, rule.longest_streak ?? 0);
+          updateData.streak_count = newStreak;
+          updateData.longest_streak = longestStreak;
+          
+          // Check for milestones and send special notification
+          const milestones = [3, 5, 10, 25, 50, 100];
+          if (milestones.includes(newStreak)) {
+            await bot.api.sendMessage(
+              rule.user_id,
+              buildMilestoneMessage(rule.name, newStreak),
+              { parse_mode: "Markdown" }
+            );
+          }
+        } else {
+          updateData.streak_count = 0;
+        }
+
         await supabaseAdmin
           .from("rules")
-          .update({
-            run_count: rule.run_count + 1,
-            last_run_at: new Date().toISOString(),
-            next_run_at: computeNextRun(rule),
-          })
+          .update(updateData)
           .eq("id", rule.id);
 
         // Notify user via Telegram
@@ -209,4 +230,19 @@ async function sendExecutionNotification(
   } catch (err) {
     console.error("[sendExecutionNotification] error:", err);
   }
+}
+
+function buildMilestoneMessage(ruleName: string, streak: number): string {
+  const messages: Record<number, string> = {
+    3:   "🔥 3-run streak on _{name}_! Your autopilot is warming up.",
+    5:   "⚡ 5 consecutive runs on _{name}_. You're building a habit.",
+    10:  "🏆 10-run streak on _{name}_! A full month of consistency.",
+    25:  "🚀 25 runs on _{name}_. Most people quit before this point.",
+    50:  "💎 50-run streak on _{name}_. Diamond hands, automated.",
+    100: "🌕 100 runs on _{name}_. You are the autopilot.",
+  };
+  const template = messages[streak] ?? `🔥 ${streak}-run streak on _{name}_!`;
+  return `✈️ *Milestone Unlocked!*\n\n` + 
+         template.replace("{name}", ruleName) +
+         `\n\n_Keep the rules running._ 💪`;
 }
