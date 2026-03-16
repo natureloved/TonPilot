@@ -75,6 +75,57 @@ function nextRunText(dateStr: string | null): string {
   return `in ${diffDays}d`;
 }
 
+function cronToHuman(cron: string): string {
+  const parts = cron.trim().split(/\s+/);
+  if (parts.length !== 5) return cron;
+
+  const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
+
+  // Format time
+  const h = parseInt(hour, 10);
+  const m = parseInt(minute, 10);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  const minStr = m === 0 ? "00" : m < 10 ? `0${m}` : `${m}`;
+  const timeStr = `${hour12}:${minStr} ${period} UTC`;
+
+  const days: Record<string, string> = {
+    "0": "Sunday", "1": "Monday", "2": "Tuesday",
+    "3": "Wednesday", "4": "Thursday", "5": "Friday", "6": "Saturday"
+  };
+
+  const months: Record<string, string> = {
+    "1": "January", "2": "February", "3": "March",
+    "4": "April", "5": "May", "6": "June", "7": "July",
+    "8": "August", "9": "September", "10": "October",
+    "11": "November", "12": "December"
+  };
+
+  const ordinal = (n: number): string => {
+    const s = ["th","st","nd","rd"];
+    const v = n % 100;
+    return n + (s[(v-20)%10] || s[v] || s[0]);
+  };
+
+  if (dayOfWeek === "*" && dayOfMonth === "*" && month === "*") return `Every day at ${timeStr}`;
+  if (dayOfWeek !== "*" && dayOfMonth === "*" && month === "*") return `Every ${days[dayOfWeek] ?? "day"} at ${timeStr}`;
+  if (dayOfMonth !== "*" && dayOfWeek === "*" && month === "*") return `${ordinal(parseInt(dayOfMonth, 10))} of every month at ${timeStr}`;
+  if (dayOfMonth !== "*" && month !== "*") return `${ordinal(parseInt(dayOfMonth, 10))} ${months[month] ?? ""} at ${timeStr}`;
+  if (hour === "*") return `Every hour at :${minStr} UTC`;
+
+  return `Every day at ${timeStr}`;
+}
+
+function formatTriggerText(trigger: any): string {
+  if (!trigger) return "Unknown trigger";
+  if (trigger.type === "schedule") return cronToHuman(trigger.cron);
+  if (trigger.type === "price_above") return `When TON rises above $${trigger.threshold}`;
+  if (trigger.type === "price_below") return `When TON drops below $${trigger.threshold}`;
+  if (trigger.type === "balance_above") return `When vault rises above ${trigger.threshold} TON`;
+  if (trigger.type === "balance_below") return `When vault drops below ${trigger.threshold} TON`;
+  return trigger.type;
+}
+
 function relativeTime(dateStr: string, full = false): string {
   const date = new Date(dateStr);
   const diffMs = Date.now() - date.getTime();
@@ -195,7 +246,25 @@ export default function ArcticDashboard() {
     }
   }, [fetchData]);
 
+  // Handle visibility & focus out-of-sync issues for Telegram Mini App
+  useEffect(() => {
+    if (!userId) return;
 
+    const handleFocus = () => fetchData(userId);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchData(userId);
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [userId, fetchData]);
 
   if (!mounted) return null;
 
@@ -968,9 +1037,7 @@ function RuleCard({ rule, onToggle, onDelete, extended = false }: { rule: Rule, 
         <div className="flex items-start gap-2 text-xs text-[#1a1a2e]">
           <span className="text-[#94a3b8] font-mono-jetbrains text-[10px] uppercase w-14 pt-0.5">Trigger</span>
           <p className="font-medium text-[#1a1a2e]">
-            {rule.trigger.type === "schedule" 
-              ? `Every ${(rule.trigger as ScheduleTrigger).cron}` 
-              : `When price ${rule.trigger.type === "price_above" ? "crosses above" : "drops below"} threshold`}
+            {formatTriggerText(rule.trigger)}
           </p>
         </div>
       </div>

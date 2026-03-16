@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
         const execResult = await executeMcpAction(mnemonic, rule.action);
 
         // Log the execution
-        await supabaseAdmin.from("execution_logs").insert({
+        const { error: logError } = await supabaseAdmin.from("execution_logs").insert({
           rule_id: rule.id,
           user_id: rule.user_id,
           status: execResult.success ? "success" : "failed",
@@ -65,11 +65,16 @@ export async function GET(req: NextRequest) {
           executed_at: new Date().toISOString(),
         });
 
+        if (logError) {
+          console.error(`[scheduler] Failed to insert execution log for rule ${rule.id}:`, logError);
+        }
+
         // Fail-safe logic
+        const nextRun = computeNextRun(rule.trigger);
         const updateData: any = {
           run_count: rule.run_count + 1,
           last_run_at: new Date().toISOString(),
-          next_run_at: computeNextRun(rule.trigger),
+          next_run_at: nextRun,
         };
 
         if (execResult.success) {
@@ -105,10 +110,32 @@ export async function GET(req: NextRequest) {
           }
         }
 
-        await supabaseAdmin
+        const { error: updateError } = await supabaseAdmin
           .from("rules")
           .update(updateData)
           .eq("id", rule.id);
+
+        if (updateError) {
+          console.error(`[scheduler] Failed to update rule ${rule.id} (status/stats):`, updateError);
+          console.log(`[scheduler] Attempting fallback update for critical next_run_at time...`);
+
+          // Fallback update: only update critical timing fields to prevent infinite loops
+          const fallbackData = {
+            run_count: rule.run_count + 1,
+            last_run_at: new Date().toISOString(),
+            next_run_at: nextRun,
+            status: updateData.status ?? rule.status,
+          };
+
+          const { error: fallbackError } = await supabaseAdmin
+            .from("rules")
+            .update(fallbackData)
+            .eq("id", rule.id);
+            
+          if (fallbackError) {
+             console.error(`[scheduler] FATAL: Fallback update also failed for rule ${rule.id}:`, fallbackError);
+          }
+        }
 
         // Notify user via Telegram
         await sendExecutionNotification(rule, execResult);
