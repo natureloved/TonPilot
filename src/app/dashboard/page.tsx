@@ -25,7 +25,7 @@ import {
   Zap
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import type { Rule, ExecutionLog } from "@/types";
+import type { Rule, ExecutionLog, SwapAction, SendAction, ScheduleTrigger } from "@/types";
 
 // ── Types & Helpers ──────────────────────────────────────────────────────────
 
@@ -615,13 +615,19 @@ function RuleCard({ rule, onToggle, onDelete, extended = false }: { rule: Rule, 
         <div className="flex items-start gap-2 text-xs text-[#1a1a2e]">
           <span className="text-[#94a3b8] font-mono text-[10px] uppercase w-14 pt-0.5">Action</span>
           <p className="font-medium bg-[#f8faff] px-2 py-1 rounded-lg flex-1">
-            {isSwap ? `Swap ${rule.action.amount} ${rule.action.fromAsset} → ${rule.action.toAsset}` : isSend ? `Send ${rule.action.amount} ${rule.action.asset} to wallet` : `Send notification`}
+            {isSwap 
+              ? `Swap ${(rule.action as SwapAction).amount} ${(rule.action as SwapAction).fromAsset} → ${(rule.action as SwapAction).toAsset}` 
+              : isSend 
+                ? `Send ${(rule.action as SendAction).amount} ${(rule.action as SendAction).asset} to wallet` 
+                : `Send notification`}
           </p>
         </div>
         <div className="flex items-start gap-2 text-xs text-[#1a1a2e]">
           <span className="text-[#94a3b8] font-mono text-[10px] uppercase w-14 pt-0.5">Trigger</span>
-          <p className="font-medium">
-            {rule.trigger.type === "schedule" ? `Every ${rule.trigger.cron}` : `When price ${rule.trigger.type === "price_above" ? "crosses above" : "drops below"} threshold`}
+          <p className="font-medium text-[#1a1a2e]">
+            {rule.trigger.type === "schedule" 
+              ? `Every ${(rule.trigger as ScheduleTrigger).cron}` 
+              : `When price ${rule.trigger.type === "price_above" ? "crosses above" : "drops below"} threshold`}
           </p>
         </div>
       </div>
