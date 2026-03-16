@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getTonBalance, getTonPrice } from "@/lib/ton";
 import { bot } from "@/lib/bot";
 import { ExecutionLog, Rule } from "@/types";

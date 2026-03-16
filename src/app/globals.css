@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
+
 @layer base {
   :root {
     --background: #03040B; /* Deep Space Black/Blue */
@@ -26,6 +28,19 @@
     background-attachment: fixed;
     font-family: 'Inter', sans-serif;
     -webkit-font-smoothing: antialiased;
+  }
+
+  /* Arctic Blue Theme Overrides for Dashboard */
+  .arctic-theme {
+    --background: #f0f4ff;
+    --foreground: #1a1a2e;
+    background: var(--background);
+    background-image: none;
+    font-family: 'Outfit', sans-serif;
+  }
+
+  .font-mono-jetbrains {
+    font-family: 'JetBrains Mono', monospace !important;
   }
 }
 

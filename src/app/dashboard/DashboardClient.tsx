@@ -126,14 +126,20 @@ export default function ArcticDashboard() {
   useEffect(() => {
     setMounted(true);
     if (typeof window !== "undefined") {
-      const tg = WebApp;
-      tg.ready();
-      tg.expand();
-      
-      const user = tg.initDataUnsafe?.user;
-      if (user) {
-        setUserId(user.id.toString());
-        fetchData(user.id.toString());
+      try {
+        const tg = WebApp;
+        if (tg && typeof tg.ready === 'function') {
+          tg.ready();
+          tg.expand();
+          
+          const user = tg.initDataUnsafe?.user;
+          if (user) {
+            setUserId(user.id.toString());
+            fetchData(user.id.toString());
+          }
+        }
+      } catch (e) {
+        console.error("WebApp Init Error:", e);
       }
     }
   }, [fetchData]);
@@ -170,9 +176,11 @@ export default function ArcticDashboard() {
   };
 
   const copyAddress = () => {
-    if (walletAddress) {
+    if (walletAddress && typeof window !== "undefined") {
       navigator.clipboard.writeText(walletAddress);
-      WebApp.HapticFeedback.notificationOccurred("success");
+      if (WebApp?.HapticFeedback) {
+        WebApp.HapticFeedback.notificationOccurred("success");
+      }
     }
   };
 
@@ -440,35 +448,7 @@ export default function ArcticDashboard() {
   // ── Main UI Structure ──────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[#f0f4ff] font-['Outfit'] text-[#1a1a2e] pb-32">
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
-        
-        body { font-family: 'Outfit', sans-serif; background-color: #f0f4ff; }
-        .font-mono { font-family: 'JetBrains+Mono', monospace !important; }
-        
-        ::-webkit-scrollbar { display: none; } /* Hide scrollbar for clean look */
-      `}</style>
-
-      {/* Top Bar */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-[#e0e8ff] px-5 py-4 flex justify-between items-center">
-        <div className="font-mono font-black text-sm tracking-tighter">
-          TON<span className="text-[#2563eb]">PILOT</span>
-        </div>
-        
-        {loading ? (
-          <Skeleton className="w-32 h-7 rounded-full" />
-        ) : (
-          <button 
-            onClick={copyAddress}
-            className="font-mono text-[10px] font-bold bg-[#f0f4ff] text-[#2563eb] px-3 py-1.5 rounded-full flex items-center gap-1.5 active:scale-95 transition-all shadow-sm"
-          >
-            {truncateAddr(walletAddress || "")} <Copy className="w-3 h-3 opacity-50" />
-          </button>
-        )}
-      </header>
-
-      {/* Content wrapper */}
+    <div className="min-h-screen arctic-theme pb-32">
       <div className="max-w-md mx-auto p-5">
         {loading ? (
           <div className="space-y-6 animate-in fade-in duration-500">
@@ -599,7 +579,7 @@ function RuleCard({ rule, onToggle, onDelete, extended = false }: { rule: Rule, 
               <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${isActive ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
                 {rule.status}
               </span>
-              <span className="font-mono text-[9px] text-[#94a3b8] uppercase tracking-tight">#{rule.id.slice(0, 4)}</span>
+              <span className="font-mono-jetbrains text-[9px] text-[#94a3b8] uppercase tracking-tight">#{rule.id.slice(0, 4)}</span>
             </div>
           </div>
         </div>
@@ -615,7 +595,7 @@ function RuleCard({ rule, onToggle, onDelete, extended = false }: { rule: Rule, 
 
       <div className="space-y-3 mb-4">
         <div className="flex items-start gap-2 text-xs text-[#1a1a2e]">
-          <span className="text-[#94a3b8] font-mono text-[10px] uppercase w-14 pt-0.5">Action</span>
+          <span className="text-[#94a3b8] font-mono-jetbrains text-[10px] uppercase w-14 pt-0.5">Action</span>
           <p className="font-medium bg-[#f8faff] px-2 py-1 rounded-lg flex-1">
             {isSwap 
               ? `Swap ${(rule.action as SwapAction).amount} ${(rule.action as SwapAction).fromAsset} → ${(rule.action as SwapAction).toAsset}` 
@@ -625,7 +605,7 @@ function RuleCard({ rule, onToggle, onDelete, extended = false }: { rule: Rule, 
           </p>
         </div>
         <div className="flex items-start gap-2 text-xs text-[#1a1a2e]">
-          <span className="text-[#94a3b8] font-mono text-[10px] uppercase w-14 pt-0.5">Trigger</span>
+          <span className="text-[#94a3b8] font-mono-jetbrains text-[10px] uppercase w-14 pt-0.5">Trigger</span>
           <p className="font-medium text-[#1a1a2e]">
             {rule.trigger.type === "schedule" 
               ? `Every ${(rule.trigger as ScheduleTrigger).cron}` 
@@ -637,13 +617,13 @@ function RuleCard({ rule, onToggle, onDelete, extended = false }: { rule: Rule, 
       <div className="flex items-center justify-between border-t border-slate-50 pt-4 mt-2">
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
-            <span className="font-mono text-[8px] text-[#94a3b8] uppercase">Next Run</span>
-            <span className="font-mono text-[10px] font-bold text-[#1a1a2e]">{rule.status === "active" && rule.next_run_at ? formatRelativeTime(rule.next_run_at) : "--"}</span>
+            <span className="font-mono-jetbrains text-[8px] text-[#94a3b8] uppercase">Next Run</span>
+            <span className="font-mono-jetbrains text-[10px] font-bold text-[#1a1a2e]">{rule.status === "active" && rule.next_run_at ? formatRelativeTime(rule.next_run_at) : "--"}</span>
           </div>
           {extended && (rule.streak_count > 0 || rule.run_count > 0) && (
             <div className="flex flex-col">
-              <span className="font-mono text-[8px] text-[#94a3b8] uppercase">Stats</span>
-              <span className="font-mono text-[10px] font-bold text-[#1a1a2e] flex items-center gap-1">
+              <span className="font-mono-jetbrains text-[8px] text-[#94a3b8] uppercase">Stats</span>
+              <span className="font-mono-jetbrains text-[10px] font-bold text-[#1a1a2e] flex items-center gap-1">
                 {rule.run_count} total {rule.streak_count > 1 && <span className="text-orange-500 flex items-center gap-0.5"><Zap className="w-2.5 h-2.5 fill-orange-500" /> {rule.streak_count}</span>}
               </span>
             </div>

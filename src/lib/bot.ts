@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { Bot, Context, InlineKeyboard } from "grammy";
 import { parseIntent } from "@/lib/intent-parser";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { createAgenticWallet } from "@/lib/ton";
 import { Rule, User } from "@/types";
 

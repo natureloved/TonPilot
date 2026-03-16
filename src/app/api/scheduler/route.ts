@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getTonBalance, getTonPrice, executeMcpAction } from "@/lib/ton";
 import { Rule, User, ScheduleTrigger, PriceTrigger, BalanceTrigger } from "@/types";
 import { bot, decryptMnemonic } from "@/lib/bot";
