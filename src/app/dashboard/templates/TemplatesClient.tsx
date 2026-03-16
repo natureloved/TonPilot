@@ -51,11 +51,20 @@ export default function TemplatesPage() {
 
   const handleSelect = (id: string) => {
     if (WebApp?.HapticFeedback) {
-      WebApp.HapticFeedback.impactOccurred("medium");
+      WebApp.HapticFeedback.notificationOccurred("success");
     }
-    // Logic to select template or go back to bot
-    WebApp.showAlert(`Template ${id} selected! This will be configured in the bot.`);
-    WebApp.close();
+    
+    // Instead of a technical alert, show a success confirmation
+    WebApp.showConfirm(
+      `Confirm setup for "${id}" template? This will take you back to the Pilot to finalize.`,
+      (confirmed) => {
+        if (confirmed) {
+          // In a real app, you might send a deep link message or update DB
+          // For now, we simulate success and return to bot
+          WebApp.close();
+        }
+      }
+    );
   };
 
   return (

@@ -76,14 +76,29 @@ export async function parseIntent(userMessage: string): Promise<ParsedIntent> {
       messages: [{ role: "user", content: userMessage }],
     });
 
-    const raw = response.content[0].type === "text" ? response.content[0].text : "";
-    const parsed = JSON.parse(raw.trim());
-    return parsed as ParsedIntent;
+    let raw = response.content[0].type === "text" ? response.content[0].text : "";
+    console.log("[parseIntent] Raw response from Claude:", raw);
+
+    // Strip markdown code blocks if present
+    if (raw.includes("```")) {
+      raw = raw.replace(/```json|```/g, "").trim();
+    }
+
+    try {
+      const parsed = JSON.parse(raw.trim());
+      return parsed as ParsedIntent;
+    } catch (parseErr) {
+      console.error("[parseIntent] JSON parse error. Raw content:", raw);
+      return {
+        success: false,
+        error: "Failed to parse automation logic. Please try again.",
+      };
+    }
   } catch (err) {
-    console.error("[parseIntent] error:", err);
+    console.error("[parseIntent] Anthropic API error:", err);
     return {
       success: false,
-      error: "Failed to parse your request. Please try rephrasing.",
+      error: "AI engine error. Please try rephrasing or check API keys.",
     };
   }
 }

@@ -77,70 +77,41 @@ export default function ArcticDashboard() {
   const fetchData = useCallback(async (uid: string) => {
     setLoading(true);
     try {
-      // 1. Get Wallet Address from Supabase
-      const { data: user, error: userError } = await supabase
-        .from("users")
-        .select("wallet_address")
-        .eq("id", uid)
-        .single();
+      const res = await fetch(`/api/user/sync?userId=${uid}`);
+      if (!res.ok) throw new Error("Sync API failed");
       
-      if (userError) {
-        console.warn("Supabase User Fetch Error (might not exist yet):", userError);
+      const { data, success } = await res.json();
+      if (success) {
+        setWalletAddress(data.walletAddress);
+        setBalance(data.balance);
+        setPrice(data.price);
+        setRules(data.rules);
+        setLogs(data.logs);
       }
-      
-      if (user?.wallet_address) {
-        setWalletAddress(user.wallet_address);
-        
-        try {
-          // 2. Fetch Balance & Price from our new API routes
-          const [balRes, priceRes] = await Promise.all([
-            fetch(`/api/wallet?address=${user.wallet_address}`),
-            fetch(`/api/wallet/price`)
-          ]);
-          
-          if (balRes.ok) {
-            const balData = await balRes.json();
-            if (balData.balance !== undefined) setBalance(balData.balance);
-          }
-          
-          if (priceRes.ok) {
-            const priceData = await priceRes.json();
-            if (priceData.price !== undefined) setPrice(priceData.price);
-          }
-        } catch (apiErr) {
-          console.error("Wallet API Error:", apiErr);
-        }
-      }
-
-      try {
-        // 3. Fetch Rules
-        const { data: rulesData } = await supabase
-          .from("rules")
-          .select("*")
-          .eq("user_id", uid)
-          .order("created_at", { ascending: false });
-        
-        if (rulesData) setRules(rulesData);
-
-        // 4. Fetch Logs
-        const { data: logsData } = await supabase
-          .from("execution_logs")
-          .select("*, rules(name)")
-          .eq("user_id", uid)
-          .order("executed_at", { ascending: false })
-          .limit(20);
-        
-        if (logsData) setLogs(logsData);
-      } catch (dbErr) {
-        console.error("Database Fetch Error:", dbErr);
-      }
-
     } catch (err) {
-      console.error("Dashboard Init Error:", err);
+      console.error("Dashboard Sync Error:", err);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  // ── Nav Button Helper ──────────────────────────────────────────────────────
+  const NavBtn = ({ id, icon: Icon, label }: { id: Tab, icon: any, label: string }) => {
+    const isActive = activeTab === id;
+    return (
+      <button 
+        onClick={() => setActiveTab(id)}
+        className="flex flex-col items-center gap-1 transition-all outline-none"
+      >
+        <div className={`p-2 rounded-2xl transition-all ${isActive ? 'bg-blue-50 text-blue-600' : 'text-slate-400 hover:bg-slate-50'}`}>
+          <Icon className={`w-5 h-5 ${isActive ? 'scale-110' : ''}`} />
+        </div>
+        <span className={`text-[9px] font-bold uppercase tracking-tight ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
+          {label}
+        </span>
+      </button>
+    );
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -571,42 +542,26 @@ export default function ArcticDashboard() {
       </div>
 
       {/* Scrollable Floating Action Button */}
-      {(activeTab === "home" || activeTab === "rules") && !loading && (
-        <button 
-          onClick={() => router.push("/dashboard/templates")}
-          className="fixed right-6 bottom-28 w-14 h-14 bg-[#2563eb] text-white rounded-full flex items-center justify-center shadow-2xl shadow-blue-400 z-50 active:scale-90 transition-transform"
-        >
-          <Plus className="w-7 h-7" />
-        </button>
-      )}
-
+      
       {/* Bottom Nav */}
-      <nav className="fixed bottom-0 w-full bg-white border-t border-[#e0e8ff] px-6 py-4 flex justify-between items-center z-50 rounded-t-[32px]">
-        {[
-          { id: "home", icon: Home, label: "Home" },
-          { id: "rules", icon: List, label: "Rules" },
-          { id: "bottom_fab", type: "fab" }, // Gap for design style if needed
-          { id: "activity", icon: ActivityIcon, label: "Activity" },
-          { id: "settings", icon: SettingsIcon, label: "Settings" }
-        ].map((t) => {
-          if (t.type === "fab") return <div key="gap" className="w-2" />;
-          const Icon = t.icon!;
-          const isActive = activeTab === t.id;
-          return (
+      <nav className="fixed bottom-6 left-6 right-6 z-40">
+        <div className="max-w-md mx-auto relative h-20 bg-white/80 backdrop-blur-2xl rounded-[32px] border border-blue-50/50 shadow-2xl shadow-blue-100 flex items-center justify-between px-4">
+          <NavBtn id="home" icon={Home} label="Home" />
+          <NavBtn id="rules" icon={List} label="Rules" />
+          
+          {/* Centered Plus Button Positioning */}
+          <div className="w-16 h-16 -mt-10 flex items-center justify-center relative">
             <button 
-              key={t.id} 
-              onClick={() => setActiveTab(t.id as Tab)}
-              className="flex flex-col items-center gap-1.5 transition-all outline-none"
+              onClick={() => router.push("/dashboard/templates")}
+              className="w-16 h-16 bg-[#2563eb] text-white rounded-full flex items-center justify-center shadow-xl shadow-blue-300 active:scale-90 hover:scale-105 transition-all outline-none border-4 border-white"
             >
-              <div className={`p-2 rounded-2xl transition-all ${isActive ? 'bg-[#f0f4ff] text-[#2563eb] shadow-sm' : 'text-[#94a3b8] hover:bg-slate-50'}`}>
-                <Icon className={`w-5 h-5 transition-all ${isActive ? 'scale-110' : ''}`} />
-              </div>
-              <span className={`font-mono text-[9px] font-bold uppercase tracking-tight transition-all ${isActive ? 'text-[#2563eb] opacity-100' : 'text-[#94a3b8] opacity-100'}`}>
-                {t.label}
-              </span>
+              <Plus className="w-8 h-8" />
             </button>
-          );
-        })}
+          </div>
+
+          <NavBtn id="activity" icon={ActivityIcon} label="Activity" />
+          <NavBtn id="settings" icon={SettingsIcon} label="Settings" />
+        </div>
       </nav>
 
       {/* Delete Confirmation Modal */}
