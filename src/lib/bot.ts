@@ -1,8 +1,37 @@
+import crypto from "crypto";
 import { Bot, Context, InlineKeyboard } from "grammy";
 import { parseIntent } from "@/lib/intent-parser";
 import { supabaseAdmin } from "@/lib/supabase";
 import { createAgenticWallet } from "@/lib/ton";
 import { Rule, User } from "@/types";
+
+// ── Encryption Utils ─────────────────────────────────────────────────────────
+
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString("hex");
+const IV_LENGTH = 16;
+
+function encryptMnemonic(text: string): string {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const key = Buffer.from(ENCRYPTION_KEY.padEnd(32, '0').slice(0, 32));
+  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+  let encrypted = cipher.update(text);
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  return iv.toString("hex") + ":" + encrypted.toString("hex");
+}
+
+export function decryptMnemonic(text: string): string {
+  if (!text.includes(":")) {
+    return Buffer.from(text, "base64").toString();
+  }
+  const textParts = text.split(":");
+  const iv = Buffer.from(textParts.shift()!, "hex");
+  const encryptedText = Buffer.from(textParts.join(":"), "hex");
+  const key = Buffer.from(ENCRYPTION_KEY.padEnd(32, '0').slice(0, 32));
+  const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+  let decrypted = decipher.update(encryptedText);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
+}
 
 // ── Bot Instance ─────────────────────────────────────────────────────────────
 
@@ -79,9 +108,15 @@ bot.callbackQuery("create_wallet", async (ctx) => {
     const { address, mnemonic } = await createAgenticWallet();
     const telegramId = ctx.from.id.toString();
 
-    // Store the mnemonic encrypted in Supabase
-    // TODO: replace with proper encryption (e.g. AES-256 with a KMS key)
-    const mnemonicEncoded = Buffer.from(mnemonic.join(" ")).toString("base64");
+    await ctx.reply(
+      `🔐 *Your Secret Recovery Phrase*\n\n` +
+      `Write these 24 words down and store them somewhere safe. This is the only way to recover your vault if you ever lose access to Telegram.\n\n` +
+      `||${mnemonic.join(" ")}||\n\n` +
+      `⚠️ TonPilot will never show this again.`,
+      { parse_mode: "Markdown" }
+    );
+
+    const mnemonicEncoded = encryptMnemonic(mnemonic.join(" "));
 
     await supabaseAdmin
       .from("users")
@@ -147,6 +182,31 @@ bot.callbackQuery("show_examples", async (ctx) => {
       `*Balance alerts*\n` +
       `• "Notify me when my vault balance drops below 50 TON"`,
     { parse_mode: "Markdown" }
+  );
+});
+
+// ── /templates ───────────────────────────────────────────────────────────────
+
+bot.command("templates", async (ctx) => {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+
+  await ctx.reply(
+    `⚡ *Quick Start Templates*\n\n` +
+    `Don't want to type from scratch? Pick a template and customize it in seconds:\n\n` +
+    `🔄 *Weekly DCA* — Swap TON on a schedule\n` +
+    `🔔 *Price Alert* — Notify when TON hits a price\n` +
+    `📉 *Buy the Dip* — Auto-buy when price drops\n` +
+    `⚠️ *Low Balance Alert* — Never run out of vault funds\n` +
+    `📤 *Monthly Send* — Recurring TON payment\n` +
+    `🎯 *Take Profit* — Auto-swap when price pumps\n\n` +
+    `Tap below to open the template picker 👇`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: new InlineKeyboard().url(
+        "⚡ Pick a Template →",
+        `${appUrl}/dashboard/templates`
+      ),
+    }
   );
 });
 
@@ -226,6 +286,61 @@ bot.command("wallet", async (ctx) => {
       `TON Price: $${price.toFixed(4)}`,
     { parse_mode: "Markdown" }
   );
+});
+
+// ── /export ──────────────────────────────────────────────────────────────────
+
+bot.command("export", async (ctx) => {
+  const keyboard = new InlineKeyboard()
+    .text("⚠️ I understand, show my phrase", "confirm_export")
+    .text("Cancel", "cancel_export");
+
+  await ctx.reply(
+    `🚨 *DANGER ZONE*\n\n` +
+    `You are about to view your 24-word recovery phrase. Anyone with this phrase has full control over your vault and your funds.\n\n` +
+    `• Ensure no one is looking at your screen.\n` +
+    `• TonPilot support will NEVER ask for this.\n\n` +
+    `Do you want to proceed?`,
+    { parse_mode: "Markdown", reply_markup: keyboard }
+  );
+});
+
+bot.callbackQuery("confirm_export", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const telegramId = ctx.from.id.toString();
+
+  const { data: user } = await supabaseAdmin
+    .from("users")
+    .select("wallet_mnemonic_enc")
+    .eq("id", telegramId)
+    .single();
+
+  if (!user?.wallet_mnemonic_enc) {
+    await ctx.editMessageText("No vault found. Use /start to create one.");
+    return;
+  }
+
+  let mnemonicText = "";
+  try {
+    mnemonicText = decryptMnemonic(user.wallet_mnemonic_enc);
+  } catch (err) {
+    mnemonicText = "Error decrypting mnemonic.";
+    console.error("[export] decrypt error:", err);
+  }
+
+  console.log(`[EXPORT] User ${telegramId} exported their seed phrase.`);
+
+  await ctx.editMessageText(
+    `🔐 *Your Secret Recovery Phrase*\n\n` +
+    `||${mnemonicText}||\n\n` +
+    `⚠️ Never share this with anyone. TonPilot support will NEVER ask for your seed phrase.`,
+    { parse_mode: "Markdown" }
+  );
+});
+
+bot.callbackQuery("cancel_export", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  await ctx.editMessageText("Export cancelled. Your phrase remains safely hidden.");
 });
 
 // ── /help ────────────────────────────────────────────────────────────────────

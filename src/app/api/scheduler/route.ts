@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getTonBalance, getTonPrice, executeMcpAction } from "@/lib/ton";
 import { Rule, User, ScheduleTrigger, PriceTrigger, BalanceTrigger } from "@/types";
-import { bot } from "@/lib/bot";
+import { bot, decryptMnemonic } from "@/lib/bot";
+import { sendWeeklyReports } from "@/lib/weekly-report";
 import cronParser from "cron-parser";
 
 export async function GET(req: NextRequest) {
@@ -13,6 +14,14 @@ export async function GET(req: NextRequest) {
   }
 
   const results = { checked: 0, fired: 0, errors: 0 };
+
+  // ── Weekly Report — fires every Monday at 08:00 UTC ──
+  const now = new Date();
+  const isMonday = now.getUTCDay() === 1;
+  const isReportHour = now.getUTCHours() === 8 && now.getUTCMinutes() === 0;
+  if (isMonday && isReportHour) {
+    await sendWeeklyReports();
+  }
 
   try {
     // Fetch all active rules
@@ -42,10 +51,7 @@ export async function GET(req: NextRequest) {
         if (!shouldFire) continue;
 
         // Execute the action
-        const mnemonic = Buffer.from(
-          rule.users.wallet_mnemonic_enc,
-          "base64"
-        ).toString("utf-8");
+        const mnemonic = decryptMnemonic(rule.users.wallet_mnemonic_enc);
 
         const execResult = await executeMcpAction(mnemonic, rule.action);
 
