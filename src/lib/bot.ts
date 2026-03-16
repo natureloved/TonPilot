@@ -806,7 +806,7 @@ bot.callbackQuery(/^confirm_rule:(.+)$/, async (ctx) => {
       `✅ <b>Rule activated!</b> "${pending.name}" is now live.\n\nI'll notify you every time it runs.`,
       {
         parse_mode: "HTML",
-        reply_markup: new InlineKeyboard().url(
+        reply_markup: new InlineKeyboard().webApp(
           "View in Dashboard →",
           dashboardUrl
         ),
