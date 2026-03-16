@@ -851,22 +851,88 @@ function mainMenu() {
 }
 
 function formatTrigger(trigger: any): string {
+  if (!trigger) return "";
+
   switch (trigger.type) {
-    case "schedule":
-      const safeCron = trigger.cron.replace(/\*/g, "\\*");
-      return `Scheduled (${safeCron}) UTC`;
+    case "schedule": {
+      return cronToHuman(trigger.cron);
+    }
     case "price_above":
-      return `When ${trigger.asset} price > $${trigger.threshold}`;
+      return `When TON price rises above $${trigger.threshold}`;
     case "price_below":
-      return `When ${trigger.asset} price < $${trigger.threshold}`;
+      return `When TON price drops below $${trigger.threshold}`;
     case "balance_below":
-      return `When vault balance < ${trigger.threshold} TON`;
+      return `When vault balance drops below ${trigger.threshold} TON`;
     case "balance_above":
-      return `When vault balance > ${trigger.threshold} TON`;
+      return `When vault balance rises above ${trigger.threshold} TON`;
     default:
-      return "Unknown trigger";
+      return trigger.type;
   }
 }
+
+function cronToHuman(cron: string): string {
+  const parts = cron.trim().split(/\s+/);
+  if (parts.length !== 5) return cron;
+
+  const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
+
+  // Format time
+  const h = parseInt(hour);
+  const m = parseInt(minute);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  const minStr = m === 0 ? "00" : m < 10 ? `0${m}` : `${m}`;
+  const timeStr = `${hour12}:${minStr} ${period} UTC`;
+
+  // Day of week names
+  const days: Record<string, string> = {
+    "0": "Sunday", "1": "Monday", "2": "Tuesday",
+    "3": "Wednesday", "4": "Thursday", "5": "Friday", "6": "Saturday"
+  };
+
+  // Month names
+  const months: Record<string, string> = {
+    "1": "January", "2": "February", "3": "March",
+    "4": "April", "5": "May", "6": "June", "7": "July",
+    "8": "August", "9": "September", "10": "October",
+    "11": "November", "12": "December"
+  };
+
+  // Ordinal suffix helper
+  function ordinal(n: number): string {
+    const s = ["th","st","nd","rd"];
+    const v = n % 100;
+    return n + (s[(v-20)%10] || s[v] || s[0]);
+  }
+
+  // Every day at X
+  if (dayOfWeek === "*" && dayOfMonth === "*" && month === "*") {
+    return `Every day at ${timeStr}`;
+  }
+
+  // Every [DayName] at X
+  if (dayOfWeek !== "*" && dayOfMonth === "*" && month === "*") {
+    return `Every ${days[dayOfWeek] ?? "day"} at ${timeStr}`;
+  }
+
+  // Nth of every month at X
+  if (dayOfMonth !== "*" && dayOfWeek === "*" && month === "*") {
+    return `${ordinal(parseInt(dayOfMonth))} of every month at ${timeStr}`;
+  }
+
+  // Specific month + day
+  if (dayOfMonth !== "*" && month !== "*") {
+    return `${ordinal(parseInt(dayOfMonth))} ${months[month] ?? ""} at ${timeStr}`;
+  }
+
+  // Every hour
+  if (hour === "*") {
+    return `Every hour at :${minStr} UTC`;
+  }
+
+  return `Every day at ${timeStr}`;
+}
+
 
 function formatAction(action: any): string {
   switch (action.type) {
@@ -899,19 +965,28 @@ function computeNextRun(trigger: any): string | null {
 }
 
 function formatRelativeTime(dateInput: Date | string): string {
-  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  const dateStr = typeof dateInput === "string" ? dateInput : dateInput.toISOString();
+  const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
-  const diffMins = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
 
-  if (diffSecs < 60) return "just now";
-  if (diffMins < 60) return `${diffMins} minutes ago`;
-  if (diffHours < 24) return `${diffHours} hours ago`;
-  if (diffDays === 1) return "Yesterday";
-  return `${diffDays} days ago`;
+  // For very recent — keep relative
+  if (diffMins < 1)   return "just now";
+  if (diffMins < 60)  return `${diffMins}m ago`;
+  if (diffHours < 6)  return `${diffHours}h ago`;
+
+  // For older — show full date with year
+  return date.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "UTC",
+  }) + " UTC";
 }
 
 function getSmartSuggestion(action: any, trigger: any): string | null {

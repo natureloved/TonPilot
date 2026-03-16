@@ -53,6 +53,33 @@ function formatRelativeTime(dateInput: Date | string): string {
   return date.toLocaleDateString();
 }
 
+function relativeTime(dateStr: string, full = false): string {
+  const date = new Date(dateStr);
+  const diffMs = Date.now() - date.getTime();
+  const mins  = Math.floor(diffMs / 60000);
+  const hours = Math.floor(diffMs / 3600000);
+  const days  = Math.floor(diffMs / 86400000);
+
+  if (!full) {
+    if (mins < 1)   return "just now";
+    if (mins < 60)  return `${mins}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days === 1) return "yesterday";
+    return `${days}d ago`;
+  }
+
+  // Full timestamp for activity tab
+  return date.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "UTC",
+  }) + " UTC";
+}
+
 const truncateAddr = (addr: string) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "None";
 
 // ── Components ───────────────────────────────────────────────────────────────
@@ -302,7 +329,7 @@ export default function ArcticDashboard() {
                     <StatusDot status={log.status} />
                     <div>
                       <p className="text-xs font-bold text-[#1a1a2e]">{log.rules?.name || "Rule"}</p>
-                      <p className="font-mono text-[9px] text-[#94a3b8] uppercase">{formatRelativeTime(log.executed_at)}</p>
+                      <p className="font-mono text-[9px] text-[#94a3b8] uppercase">{relativeTime(log.executed_at)}</p>
                     </div>
                   </div>
                   {log.tx_hash && (
@@ -373,7 +400,7 @@ export default function ArcticDashboard() {
                       </span>
                     </div>
                     <p className="font-mono text-[10px] text-[#94a3b8] mt-1 uppercase tracking-tight">
-                      {new Date(log.executed_at).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}
+                      {relativeTime(log.executed_at, true)}
                     </p>
                   </div>
                 </div>
