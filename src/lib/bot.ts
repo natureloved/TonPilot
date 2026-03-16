@@ -151,7 +151,18 @@ bot.callbackQuery("create_wallet", async (ctx) => {
   }
 });
 
-// ── Dashboard Button ─────────────────────────────────────────────────────────
+// ── Dashboard Command ──────────────────────────────────────────────────────
+
+bot.command("dashboard", async (ctx) => {
+  const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
+  const dashboardUrl = rawUrl.endsWith("/dashboard") ? rawUrl : `${rawUrl}/dashboard`;
+  await ctx.reply("📊 Your TonPilot Dashboard is ready:", {
+    reply_markup: new InlineKeyboard().webApp(
+      "Open Dashboard →",
+      dashboardUrl
+    ),
+  });
+});
 
 bot.callbackQuery("open_dashboard", async (ctx) => {
   await ctx.answerCallbackQuery();
@@ -709,7 +720,12 @@ bot.callbackQuery("cancel_rule", async (ctx) => {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function mainMenu() {
+  const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
+  const dashboardUrl = rawUrl.endsWith("/dashboard") ? rawUrl : `${rawUrl}/dashboard`;
+
   return new InlineKeyboard()
+    .webApp("📊 Dashboard", dashboardUrl)
+    .row()
     .text("📋 My Rules", "show_rules")
     .text("💼 My Wallet", "show_wallet")
     .row()
@@ -827,6 +843,18 @@ bot.catch((err) => {
     "If this keeps happening, use /start to reset."
   ).catch(() => {}); // swallow if reply itself fails
 });
+
+// Register commands with Telegram for the bottom-left menu
+bot.api.setMyCommands([
+  { command: "start", description: "Set up or return to TonPilot" },
+  { command: "dashboard", description: "Open your automation dashboard" },
+  { command: "pulse", description: "Live vault and market snapshot" },
+  { command: "rules", description: "See your active rules" },
+  { command: "wallet", description: "Check your vault balance" },
+  { command: "history", description: "See your execution logs" },
+  { command: "templates", description: "Browse quick start templates" },
+  { command: "help", description: "Show help and examples" },
+]).catch(console.error);
 
 process.on("unhandledRejection", (reason) => {
   console.error("[UnhandledRejection]", reason);
