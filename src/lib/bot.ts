@@ -156,7 +156,8 @@ bot.callbackQuery("create_wallet", async (ctx) => {
 bot.command("dashboard", async (ctx) => {
   const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
   const dashboardUrl = rawUrl.endsWith("/dashboard") ? rawUrl : `${rawUrl}/dashboard`;
-  await ctx.reply("📊 Your TonPilot Dashboard is ready:", {
+  await ctx.reply("📊 Your *TonPilot Dashboard* is ready.\n\n_Tip: You can also use the bottom-left menu button for one-tap access anytime._", {
+    parse_mode: "Markdown",
     reply_markup: new InlineKeyboard().webApp(
       "Open Dashboard →",
       dashboardUrl
@@ -285,63 +286,68 @@ bot.command("pulse", async (ctx) => {
   const telegramId = ctx.from?.id?.toString();
   if (!telegramId) return;
 
-  await ctx.replyWithChatAction("typing");
+  try {
+    await ctx.replyWithChatAction("typing");
 
-  const { data: user } = await supabaseAdmin
-    .from("users")
-    .select("wallet_address")
-    .eq("id", telegramId)
-    .single();
+    const { data: user } = await supabaseAdmin
+      .from("users")
+      .select("wallet_address")
+      .eq("id", telegramId)
+      .single();
 
-  if (!user?.wallet_address) {
-    await ctx.reply("No vault found. Use /start to create one.");
-    return;
+    if (!user?.wallet_address) {
+      await ctx.reply("No vault found. Use /start to create one.");
+      return;
+    }
+
+    const { getTonBalance, getTonPrice } = await import("@/lib/ton");
+    
+    // 1. Fetch balance & price in parallel
+    const [balance, price] = await Promise.all([
+      getTonBalance(user.wallet_address),
+      getTonPrice(),
+    ]);
+
+    // 2. Fetch active rules count
+    const { count } = await supabaseAdmin
+      .from("rules")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", telegramId)
+      .eq("status", "active");
+
+    // 3. Fetch next upcoming rule
+    const { data: nextRules } = await supabaseAdmin
+      .from("rules")
+      .select("name, next_run_at")
+      .eq("user_id", telegramId)
+      .eq("status", "active")
+      .not("next_run_at", "is", null)
+      .order("next_run_at", { ascending: true })
+      .limit(1);
+
+    const nextRule = nextRules?.[0];
+    const nextRuleText = nextRule 
+      ? `_${nextRule.name}_ · ${formatRelativeTime(nextRule.next_run_at!)}`
+      : "No upcoming runs";
+
+    const usdValue = (balance * price).toFixed(2);
+    const currentTime = new Date().toUTCString();
+
+    await ctx.reply(
+      `📡 *Market Pulse*\n\n` +
+        `💎 TON Price: *$${price.toFixed(4)}*\n` +
+        `\n` +
+        `💼 *Your Vault*\n` +
+        `Balance: *${balance.toFixed(2)} TON* (~$${usdValue})\n` +
+        `Active rules: *${count ?? 0}*\n` +
+        `Next autopilot run: ${nextRuleText}\n\n` +
+        `_Last updated: ${currentTime}_`,
+      { parse_mode: "Markdown" }
+    );
+  } catch (err) {
+    console.error("[pulse] command error:", err);
+    await ctx.reply("❌ Failed to fetch pulse data. Please try again.");
   }
-
-  const { getTonBalance, getTonPrice } = await import("@/lib/ton");
-  
-  // 1. Fetch balance & price in parallel
-  const [balance, price] = await Promise.all([
-    getTonBalance(user.wallet_address),
-    getTonPrice(),
-  ]);
-
-  // 2. Fetch active rules count
-  const { count } = await supabaseAdmin
-    .from("rules")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", telegramId)
-    .eq("status", "active");
-
-  // 3. Fetch next upcoming rule
-  const { data: nextRules } = await supabaseAdmin
-    .from("rules")
-    .select("name, next_run_at")
-    .eq("user_id", telegramId)
-    .eq("status", "active")
-    .not("next_run_at", "is", null)
-    .order("next_run_at", { ascending: true })
-    .limit(1);
-
-  const nextRule = nextRules?.[0];
-  const nextRuleText = nextRule 
-    ? `_${nextRule.name}_ · ${formatRelativeTime(nextRule.next_run_at!)}`
-    : "No upcoming runs";
-
-  const usdValue = (balance * price).toFixed(2);
-  const currentTime = new Date().toUTCString();
-
-  await ctx.reply(
-    `📡 *Market Pulse*\n\n` +
-      `💎 TON Price: *$${price.toFixed(4)}*\n` +
-      `\n` +
-      `💼 *Your Vault*\n` +
-      `Balance: *${balance.toFixed(2)} TON* (~$${usdValue})\n` +
-      `Active rules: *${count ?? 0}*\n` +
-      `Next autopilot run: ${nextRuleText}\n\n` +
-      `_Last updated: ${currentTime}_`,
-    { parse_mode: "Markdown" }
-  );
 });
 
 // ── /pause ──────────────────────────────────────────────────────────────────
@@ -670,60 +676,65 @@ bot.on("message:text", async (ctx) => {
   const telegramId = ctx.from?.id?.toString();
   if (!telegramId) return;
 
-  // Check user has a wallet
-  const { data: user } = await supabaseAdmin
-    .from("users")
-    .select("wallet_address")
-    .eq("id", telegramId)
-    .single();
+  try {
+    // Check user has a wallet
+    const { data: user } = await supabaseAdmin
+      .from("users")
+      .select("wallet_address")
+      .eq("id", telegramId)
+      .single();
 
-  if (!user?.wallet_address) {
-    await ctx.reply(
-      "You need a vault first! Use /start to set one up.",
-    );
-    return;
-  }
-
-  // Show typing indicator
-  await ctx.replyWithChatAction("typing");
-
-  // Parse the intent with Claude
-  const parsed = await parseIntent(text);
-
-  if (!parsed.success) {
-    if (parsed.clarification) {
-      await ctx.reply(`🤔 ${parsed.clarification}`);
-    } else if (parsed.error === "not_a_rule") {
+    if (!user?.wallet_address) {
       await ctx.reply(
-        `I can help you automate TON transactions! Try something like:\n• _"Swap 20 TON to USDT every Friday"_\n• _"Alert me when TON hits $5"_`,
-        { parse_mode: "Markdown" }
+        "You need a vault first! Use /start to set one up.",
       );
-    } else {
-      await ctx.reply(`❌ ${parsed.error}`);
+      return;
     }
-    return;
+
+    // Show typing indicator
+    await ctx.replyWithChatAction("typing");
+
+    // Parse the intent with Claude
+    const parsed = await parseIntent(text);
+
+    if (!parsed.success) {
+      if (parsed.clarification) {
+        await ctx.reply(`🤔 ${parsed.clarification}`);
+      } else if (parsed.error === "not_a_rule") {
+        await ctx.reply(
+          `I can help you automate TON transactions! Try something like:\n• _"Swap 20 TON to USDT every Friday"_\n• _"Alert me when TON hits $5"_`,
+          { parse_mode: "Markdown" }
+        );
+      } else {
+        await ctx.reply(`❌ ${parsed.error}`);
+      }
+      return;
+    }
+
+    if (!parsed.rule) return;
+
+    const { name, trigger, action } = parsed.rule;
+
+    // Build a human-readable confirmation
+    const triggerDesc = formatTrigger(trigger);
+    const actionDesc = formatAction(action);
+
+    const keyboard = new InlineKeyboard()
+      .text("✓ Activate", `confirm_rule:${encodeRulePayload({ name, trigger, action })}`)
+      .text("✕ Cancel", "cancel_rule");
+
+    await ctx.reply(
+      `Got it — here's what I'll set up:\n\n` +
+        `📋 *${name}*\n` +
+        `⚡ When: ${triggerDesc}\n` +
+        `🎯 Do: ${actionDesc}\n\n` +
+        `Shall I activate this rule?`,
+      { parse_mode: "Markdown", reply_markup: keyboard }
+    );
+  } catch (err) {
+    console.error("[Natural Language Handler] error:", err);
+    await ctx.reply("⚠️ I'm having trouble processing that right now. Please try again in a moment.");
   }
-
-  if (!parsed.rule) return;
-
-  const { name, trigger, action } = parsed.rule;
-
-  // Build a human-readable confirmation
-  const triggerDesc = formatTrigger(trigger);
-  const actionDesc = formatAction(action);
-
-  const keyboard = new InlineKeyboard()
-    .text("✓ Activate", `confirm_rule:${encodeRulePayload({ name, trigger, action })}`)
-    .text("✕ Cancel", "cancel_rule");
-
-  await ctx.reply(
-    `Got it — here's what I'll set up:\n\n` +
-      `📋 *${name}*\n` +
-      `⚡ When: ${triggerDesc}\n` +
-      `🎯 Do: ${actionDesc}\n\n` +
-      `Shall I activate this rule?`,
-    { parse_mode: "Markdown", reply_markup: keyboard }
-  );
 });
 
 // ── Rule Confirmation ────────────────────────────────────────────────────────
@@ -902,7 +913,7 @@ bot.catch((err) => {
   ).catch(() => {}); // swallow if reply itself fails
 });
 
-// Register commands with Telegram for the bottom-left menu
+// Register commands with Telegram for the bottom-left "/" menu
 bot.api.setMyCommands([
   { command: "start", description: "Set up or return to TonPilot" },
   { command: "dashboard", description: "Open your automation dashboard" },
@@ -913,6 +924,18 @@ bot.api.setMyCommands([
   { command: "templates", description: "Browse quick start templates" },
   { command: "help", description: "Show help and examples" },
 ]).catch(console.error);
+
+// Set the Menu Button (next to attachment clip) to open Mini App directly
+const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
+const dashboardUrl = rawUrl.endsWith("/dashboard") ? rawUrl : `${rawUrl}/dashboard`;
+
+bot.api.setChatMenuButton({
+  menu_button: {
+    type: "web_app",
+    text: "📊 Dashboard",
+    web_app: { url: dashboardUrl },
+  },
+}).catch(console.error);
 
 process.on("unhandledRejection", (reason) => {
   console.error("[UnhandledRejection]", reason);

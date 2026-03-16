@@ -70,7 +70,7 @@ Alert-only action:
 export async function parseIntent(userMessage: string): Promise<ParsedIntent> {
   try {
     const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-3-5-sonnet-20240620",
       max_tokens: 500,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
