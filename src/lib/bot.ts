@@ -925,6 +925,12 @@ bot.api.setMyCommands([
   { command: "help", description: "Show help and examples" },
 ]).catch(console.error);
 
+// Explicitly reset the Menu Button to default (Slash/Menu icon)
+bot.api.setChatMenuButton({
+  menu_button: { type: "default" },
+}).catch(console.error);
+
+
 process.on("unhandledRejection", (reason) => {
   console.error("[UnhandledRejection]", reason);
 });
