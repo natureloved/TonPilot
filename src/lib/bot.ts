@@ -736,11 +736,11 @@ bot.on("message:text", async (ctx) => {
       return;
     }
 
-    const shortId = pending.id.slice(0, 8);
+    const pendingId = pending.id;
 
     const keyboard = new InlineKeyboard()
-      .text("✓ Activate", `confirm_rule:${shortId}`)
-      .text("✕ Cancel", `delete_pending:${shortId}`);
+      .text("✓ Activate", `confirm_rule:${pendingId}`)
+      .text("✕ Cancel", `delete_pending:${pendingId}`);
 
     await ctx.reply(
       `Got it — here's what I'll set up:\n\n` +
@@ -760,7 +760,7 @@ bot.on("message:text", async (ctx) => {
 
 bot.callbackQuery(/^confirm_rule:(.+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
-  const shortId = ctx.match[1];
+  const pendingId = ctx.match[1];
   const telegramId = ctx.from.id.toString();
 
   try {
@@ -768,12 +768,12 @@ bot.callbackQuery(/^confirm_rule:(.+)$/, async (ctx) => {
     const { data: pending, error: fetchErr } = await supabaseAdmin
       .from("pending_rules")
       .select("*")
+      .eq("id", pendingId)
       .eq("user_id", telegramId)
-      .ilike("id", `${shortId}%`)
       .single();
 
     if (fetchErr || !pending) {
-      console.warn("[confirm_rule] Pending rule not found:", shortId, fetchErr);
+      console.warn("[confirm_rule] Pending rule not found:", pendingId, fetchErr);
       await ctx.editMessageText("❌ Rule expired or not found. Please try again.");
       return;
     }
@@ -820,14 +820,12 @@ bot.callbackQuery(/^confirm_rule:(.+)$/, async (ctx) => {
 
 bot.callbackQuery(/^delete_pending:(.+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
-  const shortId = ctx.match[1];
-  const telegramId = ctx.from.id.toString();
+  const pendingId = ctx.match[1];
   
   await supabaseAdmin
     .from("pending_rules")
     .delete()
-    .eq("user_id", telegramId)
-    .ilike("id", `${shortId}%`);
+    .eq("id", pendingId);
     
   await ctx.editMessageText("Rule cancelled. Tell me if you want to set something else up!");
 });
