@@ -711,17 +711,29 @@ bot.on("message:text", async (ctx) => {
       return;
     }
 
-    if (!parsed.rule) return;
+    // Save to pending_rules to avoid 64-byte callback limit
+    const { data: pending, error: pendingErr } = await supabaseAdmin
+      .from("pending_rules")
+      .insert({
+        user_id: telegramId,
+        name: name,
+        trigger: trigger,
+        action: action,
+      })
+      .select()
+      .single();
 
-    const { name, trigger, action } = parsed.rule;
+    if (pendingErr || !pending) {
+      console.error("[Natural Language Handler] Pending rule error:", pendingErr);
+      await ctx.reply("❌ Error preparing rule confirmation. Please try again.");
+      return;
+    }
 
-    // Build a human-readable confirmation
-    const triggerDesc = formatTrigger(trigger);
-    const actionDesc = formatAction(action);
+    const shortId = pending.id.slice(0, 8);
 
     const keyboard = new InlineKeyboard()
-      .text("✓ Activate", `confirm_rule:${encodeRulePayload({ name, trigger, action })}`)
-      .text("✕ Cancel", "cancel_rule");
+      .text("✓ Activate", `confirm_rule:${shortId}`)
+      .text("✕ Cancel", `delete_pending:${shortId}`);
 
     await ctx.reply(
       `Got it — here's what I'll set up:\n\n` +

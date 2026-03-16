@@ -54,6 +54,19 @@ create table if not exists execution_logs (
 create index idx_exec_logs_rule_id on execution_logs(rule_id);
 create index idx_exec_logs_user_id on execution_logs(user_id);
 
+-- ── Pending Rules (for Bot Callbacks) ───────────────────────────────────────
+
+create table if not exists pending_rules (
+  id           uuid primary key default uuid_generate_v4(),
+  user_id      text not null references users(id) on delete cascade,
+  name         text not null,
+  trigger      jsonb not null,
+  action       jsonb not null,
+  created_at   timestamptz default now()
+);
+
+create index idx_pending_rules_user_id on pending_rules(user_id);
+
 -- ── Row Level Security ──────────────────────────────────────────────────────
 -- Note: Bot uses service role key (bypasses RLS).
 -- RLS protects the Mini App (anon key) — users only see their own data.
