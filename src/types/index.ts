@@ -57,6 +57,7 @@ export interface Rule {
   run_count: number;
   streak_count: number;
   longest_streak: number;
+  fail_count: number;
   last_run_at: string | null;
   next_run_at: string | null;
   created_at: string;

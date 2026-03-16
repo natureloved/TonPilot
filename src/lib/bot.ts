@@ -256,7 +256,7 @@ bot.command("pulse", async (ctx) => {
 
   const nextRule = nextRules?.[0];
   const nextRuleText = nextRule 
-    ? `_${nextRule.name}_ · ${formatRelativeTime(new Date(nextRule.next_run_at!))}`
+    ? `_${nextRule.name}_ · ${formatRelativeTime(nextRule.next_run_at!)}`
     : "No upcoming runs";
 
   const usdValue = (balance * price).toFixed(2);
@@ -273,6 +273,168 @@ bot.command("pulse", async (ctx) => {
       `_Last updated: ${currentTime}_`,
     { parse_mode: "Markdown" }
   );
+});
+
+// ── /pause ──────────────────────────────────────────────────────────────────
+
+bot.command("pause", async (ctx) => {
+  const telegramId = ctx.from?.id?.toString();
+  if (!telegramId) return;
+
+  const match = ctx.match as string;
+  if (!match) {
+    await ctx.reply(
+      "Usage: /pause <rule_id>\n" +
+      "Find your rule IDs with /rules",
+      { parse_mode: "Markdown" }
+    );
+    return;
+  }
+
+  const shortId = match.trim().slice(0, 8);
+  
+  // Search for the rule
+  const { data: rule } = await supabaseAdmin
+    .from("rules")
+    .select("id, name, status")
+    .eq("user_id", telegramId)
+    .filter("id", "ilike", `${shortId}%`)
+    .single();
+
+  if (!rule) {
+    await ctx.reply("Rule not found. Use /rules to see your rule IDs.");
+    return;
+  }
+
+  const newStatus = rule.status === "active" ? "paused" : "active";
+  
+  const { error } = await supabaseAdmin
+    .from("rules")
+    .update({ status: newStatus })
+    .eq("id", rule.id);
+
+  if (error) throw error;
+
+  if (newStatus === "paused") {
+    await ctx.reply(
+      `⏸ *Rule paused: ${rule.name}*\n` +
+      `Send /rules to see all your rules.`,
+      { parse_mode: "Markdown" }
+    );
+  } else {
+    await ctx.reply(
+      `▶️ *Rule resumed: ${rule.name}*\n` +
+      `Your autopilot is back in the air.`,
+      { parse_mode: "Markdown" }
+    );
+  }
+});
+
+// ── /delete ─────────────────────────────────────────────────────────────────
+
+bot.command("delete", async (ctx) => {
+  const telegramId = ctx.from?.id?.toString();
+  if (!telegramId) return;
+
+  const match = ctx.match as string;
+  if (!match) {
+    await ctx.reply(
+      "Usage: /delete <rule_id>\n" +
+      "Find your rule IDs with /rules",
+      { parse_mode: "Markdown" }
+    );
+    return;
+  }
+
+  const shortId = match.trim().slice(0, 8);
+
+  const { data: rule } = await supabaseAdmin
+    .from("rules")
+    .select("id, name")
+    .eq("user_id", telegramId)
+    .filter("id", "ilike", `${shortId}%`)
+    .single();
+
+  if (!rule) {
+    await ctx.reply("Rule not found. Use /rules to see your rule IDs.");
+    return;
+  }
+
+  const keyboard = new InlineKeyboard()
+    .text("✓ Yes, delete it", `delete_confirm:${rule.id}`)
+    .text("✕ Cancel", "delete_cancel");
+
+  await ctx.reply(
+    `⚠️ *Delete ${rule.name}?*\n` +
+    `This cannot be undone.`,
+    { parse_mode: "Markdown", reply_markup: keyboard }
+  );
+});
+
+bot.callbackQuery(/^delete_confirm:(.+)$/, async (ctx) => {
+  const ruleId = ctx.match[1];
+  const telegramId = ctx.from?.id?.toString();
+
+  const { error } = await supabaseAdmin
+    .from("rules")
+    .delete()
+    .eq("id", ruleId)
+    .eq("user_id", telegramId);
+
+  if (error) throw error;
+
+  await ctx.editMessageText(
+    "🗑 *Rule deleted.* Your other rules are still running.",
+    { parse_mode: "Markdown" }
+  );
+});
+
+bot.callbackQuery("delete_cancel", async (ctx) => {
+  await ctx.editMessageText(
+    "Cancelled. Rule is still active.",
+    { parse_mode: "Markdown" }
+  );
+});
+
+// ── /history ────────────────────────────────────────────────────────────────
+
+bot.command("history", async (ctx) => {
+  const telegramId = ctx.from?.id?.toString();
+  if (!telegramId) return;
+
+  const { data: logs } = await supabaseAdmin
+    .from("execution_logs")
+    .select("*, rules(name)")
+    .eq("user_id", telegramId)
+    .order("executed_at", { ascending: false })
+    .limit(10);
+
+  if (!logs || logs.length === 0) {
+    await ctx.reply(
+      "No executions yet. Your rules will appear here once they fire.",
+      { parse_mode: "Markdown" }
+    );
+    return;
+  }
+
+  let message = "📋 *Execution History*\n\n";
+
+  for (const log of logs) {
+    const icon = log.status === "success" ? "✅" : "❌";
+    const ruleName = (log.rules as any)?.name || "Unknown Rule";
+    const time = formatRelativeTime(log.executed_at);
+    
+    message += `${icon} ${ruleName} · ${time}\n`;
+    if (log.tx_hash) {
+      const explorer = process.env.TON_NETWORK === "testnet" ? "testnet.tonscan.org" : "tonscan.org";
+      message += `↗ [${explorer}/tx/${log.tx_hash.slice(0, 8)}...](${explorer}/tx/${log.tx_hash})\n`;
+    }
+    message += "\n";
+  }
+  await ctx.reply(message, {
+    parse_mode: "Markdown",
+    link_preview_options: { is_disabled: true }
+  });
 });
 
 // ── /rules ───────────────────────────────────────────────────────────────────
@@ -417,7 +579,9 @@ bot.command("help", async (ctx) => {
       `/pulse — Live vault and market snapshot\n` +
       `/wallet — Check your vault balance\n` +
       `/rules — See your active rules\n` +
-      `/pause <id> — Pause a rule\n` +
+      `/history — See your last 10 executions\n` +
+      `/pause <id> — Pause or resume a rule\n` +
+      `/delete <id> — Delete a rule\n` +
       `/templates — Browse quick start templates\n` +
       `/export — Securely export your seed phrase\n` +
       `/help — Show this message\n\n` +
@@ -599,14 +763,71 @@ function computeNextRun(trigger: any): string | null {
   return new Date().toISOString();
 }
 
-function formatRelativeTime(date: Date): string {
+function formatRelativeTime(dateInput: Date | string): string {
+  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
   const now = new Date();
-  const diffMs = date.getTime() - now.getTime();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
   const diffMins = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffMins < 60) return `in ${diffMins}m`;
-  if (diffHours < 24) return `in ${diffHours}h`;
-  return `in ${diffDays}d`;
+  if (diffSecs < 60) return "just now";
+  if (diffMins < 60) return `${diffMins} minutes ago`;
+  if (diffHours < 24) return `${diffHours} hours ago`;
+  if (diffDays === 1) return "Yesterday";
+  return `${diffDays} days ago`;
 }
+
+function getSmartSuggestion(action: any, trigger: any): string | null {
+  // If they set a swap rule → suggest a price alert
+  if (action.type === "swap" && trigger.type === "schedule") {
+    return (
+      `💡 *Smart Suggestion*\n\n` +
+      `You've set up a scheduled swap. Want me to also ` +
+      `alert you if TON drops 20% so you can buy the dip?\n\n` +
+      `Just say: _"Alert me when TON drops below $[price]"_`
+    );
+  }
+
+  // If they set a price alert → suggest DCA
+  if (action.type === "alert" && 
+      (trigger.type === "price_above" || trigger.type === "price_below")) {
+    return (
+      `💡 *Smart Suggestion*\n\n` +
+      `Price alerts are great. Want to take it further ` +
+      `with a weekly DCA? It pairs perfectly with price monitoring.\n\n` +
+      `Try: _"Swap 10 TON to USDT every Monday"_`
+    );
+  }
+
+  // If they set a send rule → suggest low balance alert
+  if (action.type === "send") {
+    return (
+      `💡 *Smart Suggestion*\n\n` +
+      `Recurring sends are great — but make sure your ` +
+      `vault never runs dry. Want me to alert you when ` +
+      `your balance drops too low?\n\n` +
+      `Try: _"Alert me when my balance drops below 50 TON"_`
+    );
+  }
+
+  return null;
+}
+
+// ── Error Handlers ────────────────────────────────────────────────────────────
+
+bot.catch((err) => {
+  const ctx = err.ctx;
+  console.error(`[Bot Error] Update ${ctx.update.update_id}:`, err.error);
+
+  // Try to notify the user something went wrong
+  ctx.reply(
+    "⚠️ Something went wrong on my end. Please try again in a moment.\n\n" +
+    "If this keeps happening, use /start to reset."
+  ).catch(() => {}); // swallow if reply itself fails
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[UnhandledRejection]", reason);
+});

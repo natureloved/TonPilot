@@ -12,6 +12,7 @@
 
 import { TonClient, WalletContractV5R1, internal } from "@ton/ton";
 import { mnemonicNew, mnemonicToPrivateKey } from "@ton/crypto";
+import axios from "axios";
 import { Action } from "@/types";
 
 // ── TON Client ───────────────────────────────────────────────────────────────
@@ -58,13 +59,8 @@ export async function createAgenticWallet(): Promise<{
 
 export async function getTonBalance(address: string): Promise<number> {
   try {
-    const client = getTonClient();
-    const balance = await client.getBalance(
-      // Convert friendly address to internal
-      (await import("@ton/ton")).Address.parse(address)
-    );
-    // Balance is in nanoTON, convert to TON
-    return Number(balance) / 1e9;
+    const response = await axios.get(`https://${process.env.TON_NETWORK === 'testnet' ? 'testnet.' : ''}toncenter.com/api/v2/getAddressBalance?address=${address}`);
+    return Number(response.data.result) / 1e9;
   } catch (err) {
     console.error("[getTonBalance] error:", err);
     return 0;
@@ -75,12 +71,8 @@ export async function getTonBalance(address: string): Promise<number> {
 
 export async function getTonPrice(): Promise<number> {
   try {
-    const res = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd",
-      { next: { revalidate: 60 } } // Cache for 60 seconds (Next.js fetch cache)
-    );
-    const data = await res.json();
-    return data["the-open-network"]?.usd ?? 0;
+    const response = await axios.get("https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd");
+    return response.data["the-open-network"].usd;
   } catch (err) {
     console.error("[getTonPrice] error:", err);
     return 0;

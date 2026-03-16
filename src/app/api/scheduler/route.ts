@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
           executed_at: new Date().toISOString(),
         });
 
-        // Update stats: increment streak on success, reset on failure
+        // Fail-safe logic
         const updateData: any = {
           run_count: rule.run_count + 1,
           last_run_at: new Date().toISOString(),
@@ -73,12 +73,13 @@ export async function GET(req: NextRequest) {
         };
 
         if (execResult.success) {
+          updateData.fail_count = 0;
           const newStreak = (rule.streak_count ?? 0) + 1;
           const longestStreak = Math.max(newStreak, rule.longest_streak ?? 0);
           updateData.streak_count = newStreak;
           updateData.longest_streak = longestStreak;
           
-          // Check for milestones and send special notification
+          // Check for milestones
           const milestones = [3, 5, 10, 25, 50, 100];
           if (milestones.includes(newStreak)) {
             await bot.api.sendMessage(
@@ -89,6 +90,19 @@ export async function GET(req: NextRequest) {
           }
         } else {
           updateData.streak_count = 0;
+          const failCount = (rule.fail_count ?? 0) + 1;
+          updateData.fail_count = failCount;
+
+          if (failCount >= 3) {
+            updateData.status = "paused";
+            await bot.api.sendMessage(
+              rule.user_id,
+              `⚠️ *Rule auto-paused: ${rule.name}*\n\n` +
+              `This rule failed 3 times in a row so I've paused it to protect your vault.\n\n` +
+              `Use /rules to review and /pause ${rule.id.slice(0, 8)} to resume it.`,
+              { parse_mode: "Markdown" }
+            );
+          }
         }
 
         await supabaseAdmin
