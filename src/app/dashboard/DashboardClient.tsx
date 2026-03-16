@@ -69,6 +69,9 @@ export default function ArcticDashboard() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [manualUid, setManualUid] = useState("");
+  const [showManualLogin, setShowManualLogin] = useState(false);
+
 
   // Initialize & Fetch Data
   const fetchData = useCallback(async (uid: string) => {
@@ -143,23 +146,22 @@ export default function ArcticDashboard() {
     setMounted(true);
     if (typeof window !== "undefined") {
       try {
-        const tg = WebApp;
-        console.log("WebApp Debug:", {
-          user: tg.initDataUnsafe?.user,
-          platform: tg.platform
-        });
+        const tg = WebApp as any;
+        console.log("WebApp Full Object:", tg);
+        console.log("WebApp initDataUnsafe:", tg.initDataUnsafe);
 
         if (tg && typeof tg.ready === 'function') {
           tg.ready();
           tg.expand();
           
           const user = tg.initDataUnsafe?.user;
-          if (user) {
+          if (user?.id) {
             console.log("Telegram UID detected:", user.id);
-            setUserId(user.id.toString());
-            fetchData(user.id.toString());
+            const uidStr = user.id.toString();
+            setUserId(uidStr);
+            fetchData(uidStr);
           } else {
-            console.warn("No Telegram User detected");
+            console.warn("No Telegram User detected in initDataUnsafe. Sync will fail.");
           }
         }
       } catch (e) {
@@ -167,6 +169,7 @@ export default function ArcticDashboard() {
       }
     }
   }, [fetchData]);
+
 
 
   if (!mounted) return null;
@@ -484,14 +487,49 @@ export default function ArcticDashboard() {
             <p className="text-sm text-[#94a3b8] leading-relaxed">
               We couldn't detect your Telegram ID. Please make sure you are opening this from the official TonPilot bot.
             </p>
-            <button 
-              onClick={() => WebApp.close()}
-              className="bg-slate-100 text-[#1a1a2e] px-8 py-3 rounded-full font-bold text-xs"
-            >
-              Back to Chat
-            </button>
+            
+            <div className="flex flex-col gap-2 pt-2">
+              <button 
+                onClick={() => WebApp.close()}
+                className="bg-slate-100 text-[#1a1a2e] px-8 py-3 rounded-full font-bold text-xs"
+              >
+                Back to Chat
+              </button>
+              
+              <button 
+                onClick={() => setShowManualLogin(!showManualLogin)}
+                className="text-[10px] text-slate-300 hover:text-slate-400 underline"
+              >
+                Advanced Sync Diagnostics
+              </button>
+              
+              {showManualLogin && (
+                <div className="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 animate-in fade-in slide-in-from-top-2">
+                  <p className="text-[10px] text-slate-400 mb-2 uppercase font-bold tracking-wider">Manual UID Sync</p>
+                  <input 
+                    type="text" 
+                    placeholder="Enter your Telegram ID" 
+                    value={manualUid}
+                    onChange={(e) => setManualUid(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs mb-2 focus:ring-2 focus:ring-blue-100 outline-none"
+                  />
+                  <button 
+                    onClick={() => {
+                      if (manualUid) {
+                        setUserId(manualUid);
+                        fetchData(manualUid);
+                      }
+                    }}
+                    className="w-full bg-[#1a1a2e] text-white py-2 rounded-xl text-[10px] font-bold"
+                  >
+                    Force Sync
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        ) : !walletAddress && !loading ? (
+        ) :
+ !walletAddress && !loading ? (
           <div className="bg-white border border-blue-100 rounded-[32px] p-8 text-center space-y-4">
             <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto text-blue-500">
               <Zap className="w-8 h-8" />

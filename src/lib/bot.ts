@@ -925,18 +925,7 @@ bot.api.setMyCommands([
   { command: "help", description: "Show help and examples" },
 ]).catch(console.error);
 
-// Set the Menu Button (next to attachment clip) to open Mini App directly
-const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
-const dashboardUrl = rawUrl.endsWith("/dashboard") ? rawUrl : `${rawUrl}/dashboard`;
-
-bot.api.setChatMenuButton({
-  menu_button: {
-    type: "web_app",
-    text: "📊 Dashboard",
-    web_app: { url: dashboardUrl },
-  },
-}).catch(console.error);
-
 process.on("unhandledRejection", (reason) => {
   console.error("[UnhandledRejection]", reason);
 });
+
