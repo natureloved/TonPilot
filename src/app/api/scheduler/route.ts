@@ -25,15 +25,17 @@ export async function GET(req: NextRequest) {
 
   try {
     const nowTime = new Date();
-    const oneMinuteAgo = new Date(nowTime.getTime() - 60000);
+    // Add 5 second buffer for early cron triggers, and wide 15m window for delayed crons
+    const runUntil = new Date(nowTime.getTime() + 5000);
+    const runSince = new Date(nowTime.getTime() - 15 * 60000);
 
-    // Fetch scheduled rules that are due RIGHT NOW
+    // Fetch scheduled rules that are due
     const { data: scheduledRules, error: scheduleError } = await supabaseAdmin
       .from("rules")
       .select("*, users!inner(wallet_address, wallet_mnemonic_enc)")
       .eq("status", "active")
-      .lte("next_run_at", nowTime.toISOString())
-      .gte("next_run_at", oneMinuteAgo.toISOString());
+      .lte("next_run_at", runUntil.toISOString())
+      .gte("next_run_at", runSince.toISOString());
 
     if (scheduleError) throw scheduleError;
 
