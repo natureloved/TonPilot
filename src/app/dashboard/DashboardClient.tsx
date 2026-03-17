@@ -169,6 +169,7 @@ export default function ArcticDashboard() {
   const [price, setPrice] = useState<number>(0);
   const [rules, setRules] = useState<Rule[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
+  const [jettons, setJettons] = useState<any[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showFund, setShowFund] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
@@ -213,6 +214,7 @@ export default function ArcticDashboard() {
         setPrice(data.price);
         setRules(data.rules);
         setLogs(data.logs);
+        setJettons(data.jettons || []);
       }
     } catch (err) {
       console.error("Dashboard Sync Error:", err);
@@ -417,6 +419,38 @@ export default function ArcticDashboard() {
           </div>
         </div>
       </div>
+
+      {jettons.length > 0 && jettons.map((token: any) => {
+        const decimals = token.jetton?.decimals || 9;
+        const bal = Number(token.balance) / Math.pow(10, decimals);
+        const tokenPrice = token.price?.prices?.USD || ((token.jetton?.symbol === "USDT" || token.jetton?.symbol === "USD₮") ? 1 : 0);
+        
+        return (
+          <div key={token.jetton?.address || token.jetton?.symbol} className="bg-white border border-blue-50 shadow-xl shadow-blue-100/50 rounded-[32px] p-6 mb-6 relative overflow-hidden">
+            <div className="flex justify-between items-center relative z-10 mb-4">
+              <div className="flex items-center gap-3">
+                {token.jetton?.image ? (
+                  <img src={token.jetton.image} alt={token.jetton.symbol} className="w-10 h-10 rounded-full shadow-md" />
+                ) : (
+                  <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center shadow-md">
+                    <span className="text-slate-500 font-bold text-sm">{token.jetton?.symbol?.slice(0,3)}</span>
+                  </div>
+                )}
+                <div>
+                  <p className="font-bold text-[#1a1a2e]">{token.jetton?.name || "Unknown"}</p>
+                  <p className="text-xs text-[#64748b]">{token.jetton?.symbol}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="font-bold text-[#1a1a2e]">{bal.toFixed(2)} {token.jetton?.symbol}</p>
+                {tokenPrice > 0 ? (
+                  <p className="font-bold text-[#2563eb] text-sm">${(bal * tokenPrice).toFixed(2)}</p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        );
+      })}
 
       <div className="bg-white border border-blue-50 shadow-xl shadow-blue-100/50 rounded-[32px] p-8 text-center space-y-4">
         <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto text-blue-500 mb-2">
@@ -821,13 +855,14 @@ export default function ArcticDashboard() {
           <NavBtn id="rules" icon={List} label="Rules" />
           
           {/* Centered Tokens Button Positioning */}
-          <div className="w-16 h-16 -mt-10 flex items-center justify-center relative">
+          <div className="w-16 h-16 -mt-10 flex flex-col items-center justify-center relative">
             <button 
               onClick={() => setActiveTab("tokens")}
-              className={`w-16 h-16 text-white rounded-full flex items-center justify-center shadow-xl shadow-blue-300 active:scale-90 hover:scale-105 transition-all outline-none border-4 border-white ${activeTab === "tokens" ? "bg-blue-600 scale-105" : "bg-[#2563eb]"}`}
+              className={`w-14 h-14 text-white rounded-full flex items-center justify-center shadow-xl mb-1 shadow-blue-300 active:scale-90 hover:scale-105 transition-all outline-none border-4 border-white ${activeTab === "tokens" ? "bg-blue-600 scale-105" : "bg-[#2563eb]"}`}
             >
-              <Coins className="w-8 h-8" />
+              <Coins className="w-6 h-6" />
             </button>
+            <span className={`text-[9px] font-bold uppercase tracking-tight absolute -bottom-5 ${activeTab === "tokens" ? "text-blue-600" : "text-slate-400"}`}>Tokens</span>
           </div>
 
           <NavBtn id="activity" icon={ActivityIcon} label="Activity" />

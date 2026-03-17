@@ -4,6 +4,7 @@ import { parseIntent } from "@/lib/intent-parser";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { createAgenticWallet } from "@/lib/ton";
 import { Rule, User } from "@/types";
+import cronParser from "cron-parser";
 
 // ── Encryption Utils ─────────────────────────────────────────────────────────
 
@@ -1038,54 +1039,17 @@ export function computeNextRun(trigger: any): string {
     return new Date().toISOString();
   }
 
-  const cron = trigger.cron;
-  const parts = cron.trim().split(/\s+/);
-  const [minute, hour, dayOfMonth, , dayOfWeek] = parts;
-
-  const now = new Date();
-  const next = new Date();
-  next.setUTCSeconds(0, 0);
-
-  const targetMinute = parseInt(minute);
-  const targetHour = parseInt(hour);
-
-  // Set to next occurrence of this hour:minute
-  next.setUTCHours(targetHour, targetMinute, 0, 0);
-
-  // If that time already passed today, move to tomorrow
-  if (next <= now) {
-    next.setUTCDate(next.getUTCDate() + 1);
+  try {
+    const interval = cronParser.parse(trigger.cron, { tz: "UTC" });
+    const nextDateStr = interval.next().toISOString();
+    return nextDateStr || new Date().toISOString();
+  } catch (err) {
+    console.error("[computeNextRun] Invalid cron:", trigger.cron, err);
+    // Fallback: add 1 day so rule isn't permanently broken 
+    const fallback = new Date();
+    fallback.setUTCDate(fallback.getUTCDate() + 1);
+    return fallback.toISOString();
   }
-
-  // If dayOfWeek is specified, advance to next matching day
-  if (dayOfWeek !== "*") {
-    const targetDay = parseInt(dayOfWeek);
-    while (next.getUTCDay() !== targetDay) {
-      next.setUTCDate(next.getUTCDate() + 1);
-    }
-  }
-
-  // If dayOfMonth is specified
-  if (dayOfMonth !== "*") {
-    const targetDate = parseInt(dayOfMonth);
-    next.setUTCDate(targetDate);
-    if (next <= now) {
-      next.setUTCMonth(next.getUTCMonth() + 1);
-    }
-  }
-
-  // Ensure it's in the future
-  while (next <= now) {
-    if (dayOfWeek !== "*" && dayOfMonth === "*") {
-      next.setUTCDate(next.getUTCDate() + 7);
-    } else if (dayOfMonth !== "*" && dayOfWeek === "*") {
-      next.setUTCMonth(next.getUTCMonth() + 1);
-    } else {
-      next.setUTCDate(next.getUTCDate() + 1);
-    }
-  }
-
-  return next.toISOString();
 }
 
 function formatRelativeTime(dateInput: Date | string): string {

@@ -84,6 +84,18 @@ export async function getTonPrice(): Promise<number> {
   }
 }
 
+export async function getJettonBalances(address: string): Promise<any[]> {
+  try {
+    const isTestnet = process.env.TON_NETWORK === "testnet";
+    const baseUrl = isTestnet ? "https://testnet.tonapi.io" : "https://tonapi.io";
+    const response = await axios.get(`${baseUrl}/v2/accounts/${address}/jettons`);
+    return response.data.balances || [];
+  } catch (err) {
+    console.error("[getJettonBalances] error:", err);
+    return [];
+  }
+}
+
 // ── MCP Execution ────────────────────────────────────────────────────────────
 
 /**

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { getTonBalance, getTonPrice } from "@/lib/ton";
+import { getTonBalance, getTonPrice, getJettonBalances } from "@/lib/ton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -27,9 +27,10 @@ export async function GET(req: NextRequest) {
     const walletAddress = user.wallet_address;
 
     // 2. Fetch Balance, Price, Rules, and Logs in parallel
-    const [balance, price, rulesRes, logsRes] = await Promise.all([
+    const [balance, price, jettonsRes, rulesRes, logsRes] = await Promise.all([
       walletAddress ? getTonBalance(walletAddress) : Promise.resolve(0),
       getTonPrice(),
+      walletAddress ? getJettonBalances(walletAddress) : Promise.resolve([]),
       supabaseAdmin
         .from("rules")
         .select("*")
@@ -50,6 +51,7 @@ export async function GET(req: NextRequest) {
         walletAddress,
         balance,
         price,
+        jettons: jettonsRes || [],
         rules: rulesRes.data || [],
         logs: logsRes.data || []
       }
