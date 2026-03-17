@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { Bot, Context, InlineKeyboard } from "grammy";
 import { parseIntent } from "@/lib/intent-parser";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { createAgenticWallet } from "@/lib/ton";
+import { createAgenticWallet, executeMcpAction } from "@/lib/ton";
 import { Rule, User } from "@/types";
 import cronParser from "cron-parser";
 
@@ -857,6 +857,50 @@ bot.callbackQuery(/^confirm_rule:(.+)$/, async (ctx) => {
       return;
     }
 
+    if (pending.trigger.type === "instant") {
+      await ctx.editMessageText("⏳ Processing your transaction instantly...");
+      
+      const { data: userData } = await supabaseAdmin
+        .from("users")
+        .select("wallet_mnemonic_enc")
+        .eq("id", telegramId)
+        .single();
+        
+      if (!userData?.wallet_mnemonic_enc) {
+        await ctx.editMessageText("❌ Vault not found. Please type /start");
+        return;
+      }
+      
+      const mnemonic = decryptMnemonic(userData.wallet_mnemonic_enc);
+      const execResult = await executeMcpAction(mnemonic, pending.action);
+      
+      await supabaseAdmin.from("execution_logs").insert({
+        user_id: telegramId,
+        rule_id: null,
+        status: execResult.success ? "success" : "failed",
+        tx_hash: execResult.txHash ?? null,
+        error_message: execResult.error ?? null,
+        executed_at: new Date().toISOString()
+      });
+      
+      await supabaseAdmin.from("pending_rules").delete().eq("id", pending.id);
+
+      const url = dashboardUrl(telegramId);
+      
+      if (execResult.success) {
+        await ctx.editMessageText(
+          `✅ <b>Execution complete!</b>\n\nYour transaction has been processed successfully.`,
+          { parse_mode: "HTML", reply_markup: new InlineKeyboard().webApp("View in Dashboard →", url) }
+        );
+      } else {
+        await ctx.editMessageText(
+          `❌ <b>Transaction Failed</b>\n\nError: ${execResult.error || "Unknown error"}`,
+          { parse_mode: "HTML", reply_markup: new InlineKeyboard().webApp("Check Vault →", url) }
+        );
+      }
+      return;
+    }
+
     // 2. Insert into real rules table
     const { error: insertErr } = await supabaseAdmin
       .from("rules")
@@ -933,6 +977,8 @@ function formatTrigger(trigger: any): string {
   if (!trigger) return "";
 
   switch (trigger.type) {
+    case "instant":
+      return "Right now";
     case "schedule": {
       return cronToHuman(trigger.cron);
     }

@@ -33,6 +33,9 @@ If the message is not a rule request at all:
 
 ## Trigger Types
 
+Instant execution (user wants it right now):
+{ "type": "instant" }
+
 Schedule trigger:
 { "type": "schedule", "cron": "<cron expression>", "timezone": "UTC" }
 

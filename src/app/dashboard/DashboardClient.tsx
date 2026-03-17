@@ -201,8 +201,8 @@ export default function ArcticDashboard() {
   };
 
   // Initialize & Fetch Data
-  const fetchData = useCallback(async (uid: string) => {
-    setLoading(true);
+  const fetchData = useCallback(async (uid: string, isBackground: boolean = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const res = await fetch(`/api/user/sync?userId=${uid}`);
       if (!res.ok) throw new Error("Sync API failed");
@@ -219,7 +219,7 @@ export default function ArcticDashboard() {
     } catch (err) {
       console.error("Dashboard Sync Error:", err);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   }, []);
 
@@ -272,10 +272,10 @@ export default function ArcticDashboard() {
   useEffect(() => {
     if (!userId) return;
 
-    const handleFocus = () => fetchData(userId);
+    const handleFocus = () => fetchData(userId, true);
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        fetchData(userId);
+        fetchData(userId, true);
       }
     };
 

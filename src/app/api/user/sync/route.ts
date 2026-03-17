@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
         .select("*, rules(name)")
         .eq("user_id", userId)
         .order("executed_at", { ascending: false })
-        .limit(20)
+        .limit(100)
     ]);
 
     return NextResponse.json({
