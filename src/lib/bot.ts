@@ -415,9 +415,8 @@ bot.command("pause", async (ctx) => {
   const match = ctx.match as string;
   if (!match) {
     await ctx.reply(
-      "Usage: /pause <rule_id>\n" +
-      "Find your rule IDs with /rules",
-      { parse_mode: "Markdown" }
+      "Usage: /pause [rule_id]\n" +
+      "Find your rule IDs with /rules"
     );
     return;
   }
@@ -470,9 +469,8 @@ bot.command("delete", async (ctx) => {
   const match = ctx.match as string;
   if (!match) {
     await ctx.reply(
-      "Usage: /delete <rule_id>\n" +
-      "Find your rule IDs with /rules",
-      { parse_mode: "Markdown" }
+      "Usage: /delete [rule_id]\n" +
+      "Find your rule IDs with /rules"
     );
     return;
   }
