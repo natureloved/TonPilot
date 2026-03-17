@@ -23,14 +23,15 @@ import {
   Play,
   Trash2,
   AlertTriangle,
-  Zap
+  Zap,
+  Coins
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Rule, ExecutionLog, SwapAction, SendAction, ScheduleTrigger } from "@/types";
 
 // ── Types & Helpers ──────────────────────────────────────────────────────────
 
-type Tab = "home" | "rules" | "activity" | "settings";
+type Tab = "home" | "rules" | "activity" | "settings" | "tokens";
 
 function formatRelativeTime(dateInput: Date | string): string {
   const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
@@ -185,8 +186,11 @@ export default function ArcticDashboard() {
     // Attempt native TG pop, fallback to window.open
     const url = `https://t.me/${BOT_USERNAME}?start=newrule`;
     try {
-      if ((window as any).Telegram?.WebApp?.openTelegramLink) {
-        (window as any).Telegram.WebApp.openTelegramLink(url);
+      const tg = (window as any).Telegram?.WebApp;
+      if (tg?.openTelegramLink) {
+        tg.openTelegramLink(url);
+        // Force close mini app to return to bot chat
+        setTimeout(() => { tg.close(); }, 150);
       } else {
         window.open(url, "_blank");
       }
@@ -385,6 +389,52 @@ export default function ArcticDashboard() {
   );
 
   // ── Tab Views ──────────────────────────────────────────────────────────────
+
+  const TokensTab = () => (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-32">
+      <div className="flex justify-between items-end mb-6">
+        <div>
+          <h2 className="text-3xl font-black tracking-tight text-[#1a1a2e]">Tokens</h2>
+          <p className="text-[#94a3b8] font-medium mt-1">Manage your vault assets</p>
+        </div>
+      </div>
+      
+      <div className="bg-white border border-blue-50 shadow-xl shadow-blue-100/50 rounded-[32px] p-6 mb-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-indigo-400/20 rounded-bl-[100px] -z-0"></div>
+        <div className="flex justify-between items-center relative z-10 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-[#2563eb] rounded-full flex items-center justify-center shadow-md">
+              <span className="text-white font-bold text-sm">TON</span>
+            </div>
+            <div>
+              <p className="font-bold text-[#1a1a2e]">Toncoin</p>
+              <p className="text-xs text-[#64748b]">Native Asset</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="font-bold text-[#1a1a2e]">{balance.toFixed(2)} TON</p>
+            <p className="font-bold text-[#2563eb] text-sm">${(balance * price).toFixed(2)}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white border border-blue-50 shadow-xl shadow-blue-100/50 rounded-[32px] p-8 text-center space-y-4">
+        <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto text-blue-500 mb-2">
+          <RefreshCw className="w-8 h-8" />
+        </div>
+        <h3 className="font-bold text-[#1a1a2e] text-xl">Swap & Manage</h3>
+        <p className="text-sm text-[#64748b] leading-relaxed max-w-[250px] mx-auto">
+          Need to swap to USDT or other Jettons? Just tell TonPilot what you'd like to do.
+        </p>
+        <button 
+          onClick={openBotForRule}
+          className="mt-2 w-full bg-[#1a1a2e] hover:bg-slate-800 text-white py-3.5 rounded-2xl font-bold transition shadow-lg"
+        >
+          Chat with Pilot
+        </button>
+      </div>
+    </div>
+  );
 
   const HomeTab = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -757,6 +807,7 @@ export default function ArcticDashboard() {
             {activeTab === "rules" && RulesTab()}
             {activeTab === "activity" && ActivityTab()}
             {activeTab === "settings" && SettingsTab()}
+            {activeTab === "tokens" && TokensTab()}
           </>
         )}
       </div>
@@ -769,13 +820,13 @@ export default function ArcticDashboard() {
           <NavBtn id="home" icon={Home} label="Home" />
           <NavBtn id="rules" icon={List} label="Rules" />
           
-          {/* Centered Plus Button Positioning */}
+          {/* Centered Tokens Button Positioning */}
           <div className="w-16 h-16 -mt-10 flex items-center justify-center relative">
             <button 
-              onClick={() => router.push("/dashboard/templates")}
-              className="w-16 h-16 bg-[#2563eb] text-white rounded-full flex items-center justify-center shadow-xl shadow-blue-300 active:scale-90 hover:scale-105 transition-all outline-none border-4 border-white"
+              onClick={() => setActiveTab("tokens")}
+              className={`w-16 h-16 text-white rounded-full flex items-center justify-center shadow-xl shadow-blue-300 active:scale-90 hover:scale-105 transition-all outline-none border-4 border-white ${activeTab === "tokens" ? "bg-blue-600 scale-105" : "bg-[#2563eb]"}`}
             >
-              <Plus className="w-8 h-8" />
+              <Coins className="w-8 h-8" />
             </button>
           </div>
 
