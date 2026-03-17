@@ -47,6 +47,21 @@ export default function TemplatesPage() {
     }
   }, []);
 
+  const BOT_USERNAME = "TonAutoPilotBot";
+
+  const openBotForRule = () => {
+    const url = `https://t.me/${BOT_USERNAME}?start=newrule`;
+    try {
+      if ((window as any).Telegram?.WebApp?.openTelegramLink) {
+        (window as any).Telegram.WebApp.openTelegramLink(url);
+      } else {
+        window.open(url, "_blank");
+      }
+    } catch (e) {
+      window.open(url, "_blank");
+    }
+  };
+
   if (!mounted) return null;
 
   const handleSelect = (id: string) => {
@@ -59,9 +74,7 @@ export default function TemplatesPage() {
       `Confirm setup for "${id}" template? This will take you back to the Pilot to finalize.`,
       (confirmed) => {
         if (confirmed) {
-          // In a real app, you might send a deep link message or update DB
-          // For now, we simulate success and return to bot
-          WebApp.close();
+          openBotForRule();
         }
       }
     );
@@ -105,7 +118,7 @@ export default function TemplatesPage() {
           <h3 className="font-bold mb-2 relative z-10">Custom Automation?</h3>
           <p className="text-xs opacity-80 mb-6 leading-relaxed relative z-10">You can also describe your rule in plain English to the Pilot directly.</p>
           <button 
-            onClick={() => WebApp.close()}
+            onClick={() => openBotForRule()}
             className="bg-white/20 hover:bg-white/30 backdrop-blur-md px-6 py-2.5 rounded-full text-xs font-bold transition-all"
           >
             Chat with Pilot

@@ -69,13 +69,43 @@ async function getOrCreateUser(ctx: Context): Promise<User | null> {
   return newUser as User;
 }
 
+// ── Dashboard Helper ─────────────────────────────────────────────────────────
+
+function dashboardUrl(telegramId: string, path = ""): string {
+  const base = (process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app")
+    .replace(/\/dashboard\/?$/, "")
+    .replace(/\/$/, "");
+  return `${base}/dashboard${path}?uid=${telegramId}`;
+}
+
 // ── /start ───────────────────────────────────────────────────────────────────
 
 bot.command("start", async (ctx) => {
+  const payload = ctx.match; // contains "newrule" if deep linked
   const user = await getOrCreateUser(ctx);
   if (!user) return;
 
   const firstName = ctx.from?.first_name ?? "there";
+
+  // If coming from dashboard new rule button
+  if (payload === "newrule") {
+    await ctx.reply(
+      `✈️ *Create a New Rule*\n\n` +
+      `Tell me what to automate in plain English:\n\n` +
+      `• _"Swap 20 TON to USDT every Friday"_\n` +
+      `• _"Alert me when TON hits $5"_\n` +
+      `• _"Send 5 TON on the 1st of every month"_\n\n` +
+      `Or pick a ready-made template:`,
+      {
+        parse_mode: "Markdown",
+        reply_markup: new InlineKeyboard()
+          .text("⚡ Browse Templates", "show_templates")
+          .row()
+          .text("✍️ I'll type my own rule", "dismiss"),
+      }
+    );
+    return;
+  }
 
   if (user.wallet_address) {
     // Returning user
@@ -127,9 +157,7 @@ bot.callbackQuery("create_wallet", async (ctx) => {
       })
       .eq("id", telegramId);
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
-    const baseUrl = appUrl.replace(/\/dashboard\/?$/, "").replace(/\/$/, "");
-    const dashboardUrl = `${baseUrl}/dashboard?uid=${telegramId}`;
+    const url = dashboardUrl(telegramId);
 
     await ctx.reply(
       `✅ *Vault Created!*\n\n` +
@@ -142,7 +170,7 @@ bot.callbackQuery("create_wallet", async (ctx) => {
       {
         parse_mode: "Markdown",
         reply_markup: new InlineKeyboard()
-          .webApp("📊 Open Dashboard", dashboardUrl)
+          .webApp("📊 Open Dashboard", url)
           .row()
           .text("💡 See examples", "show_examples"),
       }
@@ -156,15 +184,13 @@ bot.callbackQuery("create_wallet", async (ctx) => {
 // ── Dashboard Command ──────────────────────────────────────────────────────
 
 bot.command("dashboard", async (ctx) => {
-  const telegramId = ctx.from?.id?.toString();
-  const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
-  const baseUrl = rawUrl.replace(/\/dashboard\/?$/, "").replace(/\/$/, "");
-  const dashboardUrl = `${baseUrl}/dashboard?uid=${telegramId}`;
+  const telegramId = ctx.from?.id?.toString() ?? "";
+  const url = dashboardUrl(telegramId);
   await ctx.reply("📊 Your *TonPilot Dashboard* is ready.\n\n_Tip: You can also use the bottom-left menu button for one-tap access anytime._", {
     parse_mode: "Markdown",
     reply_markup: new InlineKeyboard().webApp(
       "Open Dashboard →",
-      dashboardUrl
+      url
     ),
   });
 });
@@ -172,13 +198,11 @@ bot.command("dashboard", async (ctx) => {
 bot.callbackQuery("open_dashboard", async (ctx) => {
   await ctx.answerCallbackQuery();
   const telegramId = ctx.from.id.toString();
-  const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
-  const baseUrl = rawUrl.replace(/\/dashboard\/?$/, "").replace(/\/$/, "");
-  const dashboardUrl = `${baseUrl}/dashboard?uid=${telegramId}`;
+  const url = dashboardUrl(telegramId);
   await ctx.reply("📊 Open your TonPilot dashboard:", {
     reply_markup: new InlineKeyboard().webApp(
       "Open Dashboard →",
-      dashboardUrl
+      url
     ),
   });
 });
@@ -264,9 +288,8 @@ bot.callbackQuery("show_wallet", async (ctx) => {
 // ── /templates ───────────────────────────────────────────────────────────────
 
 bot.command("templates", async (ctx) => {
-  const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
-  const baseUrl = rawUrl.replace(/\/dashboard\/?$/, "").replace(/\/$/, "");
-  const templatesUrl = `${baseUrl}/dashboard/templates`;
+  const telegramId = ctx.from?.id?.toString() ?? "";
+  const url = dashboardUrl(telegramId, "/templates");
 
   await ctx.reply(
     `⚡ *Quick Start Templates*\n\n` +
@@ -282,9 +305,32 @@ bot.command("templates", async (ctx) => {
       parse_mode: "Markdown",
       reply_markup: new InlineKeyboard().webApp(
         "⚡ Pick a Template →",
-        templatesUrl
+        url
       ),
     }
+  );
+});
+
+bot.callbackQuery("show_templates", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const telegramId = ctx.from.id.toString();
+  const url = dashboardUrl(telegramId, "/templates");
+  
+  await ctx.reply(
+    "Open the template picker:",
+    {
+      reply_markup: new InlineKeyboard().webApp(
+        "⚡ Pick a Template →",
+        url
+      ),
+    }
+  );
+});
+
+bot.callbackQuery("dismiss", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  await ctx.editMessageText(
+    "Go ahead — tell me what to automate! 👇"
   );
 });
 
@@ -549,9 +595,7 @@ bot.command("rules", async (ctx) => {
     })
     .join("\n\n");
 
-  const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
-  const baseUrl = rawUrl.replace(/\/dashboard\/?$/, "").replace(/\/$/, "");
-  const dashboardUrl = `${baseUrl}/dashboard?uid=${telegramId}`;
+  const url = dashboardUrl(telegramId);
 
   await ctx.reply(
     `📋 *Your Active Rules (${rules.length})*\n\n${ruleList}\n\nTo pause a rule: /pause <id>\nTo delete: /delete <id>`,
@@ -559,7 +603,7 @@ bot.command("rules", async (ctx) => {
       parse_mode: "Markdown",
       reply_markup: new InlineKeyboard().webApp(
         "Manage in Dashboard →",
-        dashboardUrl
+        url
       ),
     }
   );
@@ -833,9 +877,7 @@ bot.callbackQuery(/^confirm_rule:(.+)$/, async (ctx) => {
       .delete()
       .eq("id", pending.id);
 
-    const rawUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tonpilot.vercel.app";
-    const baseUrl = rawUrl.replace(/\/dashboard\/?$/, "").replace(/\/$/, "");
-    const dashboardUrl = `${baseUrl}/dashboard?uid=${telegramId}`;
+    const url = dashboardUrl(telegramId);
 
     await ctx.editMessageText(
       `✅ <b>Rule activated!</b> "${pending.name}" is now live.\n\nI'll notify you every time it runs.`,
@@ -843,7 +885,7 @@ bot.callbackQuery(/^confirm_rule:(.+)$/, async (ctx) => {
         parse_mode: "HTML",
         reply_markup: new InlineKeyboard().webApp(
           "View in Dashboard →",
-          dashboardUrl
+          url
         ),
       }
     );

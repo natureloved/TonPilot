@@ -179,6 +179,22 @@ export default function ArcticDashboard() {
   const [manualUid, setManualUid] = useState("");
   const [showManualLogin, setShowManualLogin] = useState(false);
 
+  const BOT_USERNAME = "TonAutoPilotBot";
+
+  const openBotForRule = () => {
+    // Attempt native TG pop, fallback to window.open
+    const url = `https://t.me/${BOT_USERNAME}?start=newrule`;
+    try {
+      if ((window as any).Telegram?.WebApp?.openTelegramLink) {
+        (window as any).Telegram.WebApp.openTelegramLink(url);
+      } else {
+        window.open(url, "_blank");
+      }
+    } catch (e) {
+      window.open(url, "_blank");
+    }
+  };
+
   // Initialize & Fetch Data
   const fetchData = useCallback(async (uid: string) => {
     setLoading(true);
@@ -404,7 +420,7 @@ export default function ArcticDashboard() {
               <ArrowUpRight className="w-4 h-4" /> Withdraw
             </button>
             <button 
-              onClick={() => router.push("/dashboard/templates")}
+              onClick={() => openBotForRule()}
               title="Quick Rule"
               className="w-12 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl py-3 flex items-center justify-center transition-all active:scale-95"
             >
@@ -463,7 +479,7 @@ export default function ArcticDashboard() {
             </div>
             <p className="text-sm text-[#94a3b8]">Create your first rule to start automating</p>
             <button 
-              onClick={() => router.push("/dashboard/templates")}
+              onClick={() => openBotForRule()}
               className="bg-[#2563eb] text-white px-6 py-2.5 rounded-full font-bold text-xs shadow-lg shadow-blue-100"
             >
               + Browse Templates
@@ -519,7 +535,7 @@ export default function ArcticDashboard() {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-[#1a1a2e]">Automation Rules</h2>
         <button 
-          onClick={() => router.push("/dashboard/templates")}
+          onClick={() => openBotForRule()}
           className="bg-[#2563eb] text-white px-4 py-2 rounded-full font-bold text-xs"
         >
           + New
@@ -615,7 +631,7 @@ export default function ArcticDashboard() {
 
       <div className="bg-white border border-[#e0e8ff] rounded-[24px] divide-y divide-[#e0e8ff]">
         <button 
-          onClick={() => router.push("/dashboard/templates")}
+          onClick={() => openBotForRule()}
           className="w-full px-6 py-5 flex justify-between items-center hover:bg-[#f8faff] transition-all group"
         >
           <div className="flex items-center gap-3">
