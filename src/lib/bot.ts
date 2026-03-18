@@ -723,10 +723,9 @@ bot.on("message:text", async (ctx) => {
   if (!telegramId) return;
 
   try {
-    // Check user has a wallet
     const { data: user } = await supabaseAdmin
       .from("users")
-      .select("wallet_address, timezone")
+      .select("wallet_address")
       .eq("id", telegramId)
       .single();
 
@@ -741,7 +740,7 @@ bot.on("message:text", async (ctx) => {
     await ctx.replyWithChatAction("typing");
 
     // Parse the intent with Claude
-    const parsed = await parseIntent(text, user?.timezone || "UTC");
+    const parsed = await parseIntent(text, "UTC"); // Temporarily hardcoded to UTC as schema is locked
 
     if (!parsed.success) {
       if (parsed.clarification) {

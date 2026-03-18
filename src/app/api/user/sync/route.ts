@@ -25,13 +25,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    if (tz) {
-      await supabaseAdmin
-        .from("users")
-        .update({ timezone: tz })
-        .eq("id", userId);
-    }
-
     const walletAddress = user.wallet_address;
 
     // 2. Fetch Balance, Price, Rules, and Logs in parallel
