@@ -8,8 +8,10 @@ import cronParser from "cron-parser";
 
 export async function GET(req: NextRequest) {
   // Protect this endpoint — only Vercel cron or your server should call it
-  const secret = req.headers.get("x-cron-secret");
-  if (secret !== process.env.CRON_SECRET) {
+  const secretHeader = req.headers.get("x-cron-secret");
+  const secretQuery = req.nextUrl.searchParams.get("secret");
+  
+  if (secretHeader !== process.env.CRON_SECRET && secretQuery !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
