@@ -792,10 +792,9 @@ bot.on("message:text", async (ctx) => {
       `Got it — here's what I'll set up:\n\n` +
         `📋 <b>${name}</b>\n` +
         `⚡ When: ${triggerDesc}\n` +
-        `🌍 Timezone: UTC (add your offset to convert)\n` +
+        `🌍 Timezone: ${trigger.timezone || "UTC"}\n` +
         `🎯 Do: ${actionDesc}\n\n` +
-        `Shall I activate this rule?\n\n` +
-        `⚠️ <i>Time is in UTC. If you're in WAT (UTC+1), subtract 1 hour from your local time when setting rules.</i>`,
+        `Shall I activate this rule?`,
       { parse_mode: "HTML", reply_markup: keyboard }
     );
   } catch (err: any) {
@@ -949,7 +948,7 @@ function formatTrigger(trigger: any): string {
     case "instant":
       return "Right now";
     case "schedule": {
-      return cronToHuman(trigger.cron);
+      return cronToHuman(trigger.cron, trigger.timezone);
     }
     case "price_above":
       return `When TON price rises above $${trigger.threshold}`;
@@ -964,7 +963,7 @@ function formatTrigger(trigger: any): string {
   }
 }
 
-function cronToHuman(cron: string): string {
+function cronToHuman(cron: string, tz?: string): string {
   const parts = cron.trim().split(/\s+/);
   if (parts.length !== 5) return cron;
 
@@ -976,7 +975,7 @@ function cronToHuman(cron: string): string {
   const period = h >= 12 ? "PM" : "AM";
   const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
   const minStr = m === 0 ? "00" : m < 10 ? `0${m}` : `${m}`;
-  const timeStr = `${hour12}:${minStr} ${period} UTC`;
+  const timeStr = `${hour12}:${minStr} ${period}`;
 
   // Day of week names
   const days: Record<string, string> = {
@@ -1021,7 +1020,7 @@ function cronToHuman(cron: string): string {
 
   // Every hour
   if (hour === "*") {
-    return `Every hour at :${minStr} UTC`;
+    return `Every hour at :${minStr}`;
   }
 
   return `Every day at ${timeStr}`;
