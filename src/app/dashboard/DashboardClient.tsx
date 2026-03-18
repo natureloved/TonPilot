@@ -13,6 +13,7 @@ import {
   RefreshCw,
   ArrowUpRight,
   ArrowDownLeft,
+  ArrowDown,
   Bell,
   CheckCircle2,
   XCircle,
@@ -173,11 +174,14 @@ export default function ArcticDashboard() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showFund, setShowFund] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const [showSwap, setShowSwap] = useState(false);
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
+  const [swapAmount, setSwapAmount] = useState("");
+  const [swapping, setSwapping] = useState(false);
   const [manualUid, setManualUid] = useState("");
   const [showManualLogin, setShowManualLogin] = useState(false);
 
@@ -338,6 +342,34 @@ export default function ArcticDashboard() {
         btn.innerText = "Copied!";
         setTimeout(() => btn.innerText = orig, 2000);
       }
+    }
+  };
+
+  const handleSwap = async () => {
+    const amountVal = parseFloat(swapAmount);
+    if (isNaN(amountVal) || amountVal <= 0 || amountVal > balance) {
+      alert("Invalid swap amount or insufficient balance.");
+      return;
+    }
+    setSwapping(true);
+    try {
+      const res = await fetch("/api/wallet/swap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, fromAsset: "TON", toAsset: "USDT", amount: amountVal }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Swap failed");
+      
+      alert("Swap triggered via Agent! Check your recent activity log.");
+      setShowSwap(false);
+      setSwapAmount("");
+      fetchData(userId!);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Swap failed to start.");
+    } finally {
+      setSwapping(false);
     }
   };
 
@@ -506,11 +538,11 @@ export default function ArcticDashboard() {
               <ArrowUpRight className="w-4 h-4" /> Withdraw
             </button>
             <button 
-              onClick={() => openBotForRule()}
-              title="Quick Rule"
+              onClick={() => setShowSwap(true)}
+              title="Quick Swap"
               className="w-12 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl py-3 flex items-center justify-center transition-all active:scale-95"
             >
-              <Zap className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -1056,6 +1088,89 @@ export default function ArcticDashboard() {
               <button 
                 onClick={() => setShowWithdraw(false)}
                 disabled={withdrawing}
+                className="w-full bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-sm hover:bg-slate-200 transition disabled:opacity-50"
+              >
+                Close
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Swap Modal */}
+        {showSwap && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#0a0f2c]/40 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="bg-white rounded-[32px] p-6 sm:p-8 w-full max-w-md shadow-2xl relative"
+            >
+              <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6 sm:hidden" />
+              
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-[#1a1a2e]">Insta-Swap</h3>
+                  <p className="text-sm text-[#94a3b8] mt-1">Swap TON to USDT instantly using TonPilot AI</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-[#2563eb]">
+                  <RefreshCw className="w-6 h-6" />
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-xs font-bold text-[#64748b] uppercase mb-1.5">You Pay (TON)</label>
+                  <input 
+                    type="number" 
+                    placeholder="0.00"
+                    value={swapAmount}
+                    onChange={(e) => setSwapAmount(e.target.value)}
+                    className="w-full bg-[#f8faff] border border-[#e0e8ff] focus:border-[#2563eb] rounded-xl px-4 py-4 outline-none transition font-mono text-lg font-bold text-[#1a1a2e]"
+                    disabled={swapping}
+                  />
+                  <div className="flex justify-between items-center mt-1.5">
+                    <p className="text-xs text-[#94a3b8]">Available to swap: {balance.toFixed(2)} TON</p>
+                  </div>
+                </div>
+                
+                <div className="flex justify-center -my-2 relative z-10">
+                  <div className="bg-white p-2 rounded-full border border-blue-100 text-blue-500 shadow-sm">
+                    <ArrowDown className="w-4 h-4" />
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+                  <span className="block text-xs font-bold text-[#64748b] uppercase mb-1.5">You Receive (USDT)</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-[#009393] flex items-center justify-center">
+                      <span className="text-white text-[8px] font-bold">USD₮</span>
+                    </div>
+                    <span className="text-lg font-mono font-bold text-[#1a1a2e] opacity-50">Market Rate</span>
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                onClick={handleSwap}
+                disabled={swapping || !swapAmount || Number(swapAmount) <= 0}
+                className="w-full bg-[#2563eb] text-white py-4 rounded-xl font-bold text-sm hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 mb-4 shadow-lg shadow-blue-200"
+              >
+                {swapping ? (
+                  <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Swapping & Executing...</>
+                ) : (
+                  "Swap Now"
+                )}
+              </button>
+
+              <button 
+                onClick={() => setShowSwap(false)}
+                disabled={swapping}
                 className="w-full bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-sm hover:bg-slate-200 transition disabled:opacity-50"
               >
                 Close
