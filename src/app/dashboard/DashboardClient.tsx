@@ -184,6 +184,12 @@ export default function ArcticDashboard() {
   const [swapping, setSwapping] = useState(false);
   const [manualUid, setManualUid] = useState("");
   const [showManualLogin, setShowManualLogin] = useState(false);
+  const [tonConnectStep, setTonConnectStep] = useState<"idle" | "selecting" | "amount" | "success">("idle");
+  const [fundAmount, setFundAmount] = useState("5");
+
+  const handleTonConnect = () => {
+    setTonConnectStep("amount");
+  };
 
   const BOT_USERNAME = "TonAutoPilotBot";
 
@@ -948,7 +954,10 @@ export default function ArcticDashboard() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex flex-col justify-end bg-[#1a1a2e]/40 backdrop-blur-sm"
           >
-            <div className="absolute inset-0" onClick={() => setShowFund(false)} />
+            <div className="absolute inset-0" onClick={() => {
+              setShowFund(false);
+              setTonConnectStep("idle");
+            }} />
             <motion.div 
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
@@ -962,39 +971,142 @@ export default function ArcticDashboard() {
                 Send TON to your vault address from any wallet (Tonkeeper, MyTonWallet, etc). Your balance updates automatically.
               </p>
 
-              <div className="bg-[#f8faff] border border-[#e0e8ff] rounded-2xl p-4 mb-4">
-                <p className="font-mono text-xs text-[#1a1a2e] break-all leading-loose tracking-tight select-all">
-                  {walletAddress}
-                </p>
-                <button 
-                  onClick={copyAddress}
-                  className="mt-4 w-full flex items-center justify-center gap-2 bg-[#2563eb] text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition"
-                >
-                  <Copy className="w-4 h-4" /> <span id="copy-btn-text">Copy Address</span>
-                </button>
-              </div>
+              {tonConnectStep === "idle" && (
+                <>
+                  <button 
+                    style={{
+                      width: "100%", padding: "16px", background: "#2563eb", color: "#fff",
+                      borderRadius: 14, border: "none", fontSize: 15, fontWeight: 700,
+                      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                      gap: 10, marginBottom: 12,
+                    }}
+                    onClick={handleTonConnect}
+                  >
+                    <img 
+                      src="https://ton.org/download/ton_symbol.png" 
+                      width={22} height={22} style={{ borderRadius: "50%" }}
+                    />
+                    Connect Wallet & Fund
+                  </button>
 
-              <p className="text-center text-[#94a3b8] text-xs mb-4">
-                Only send TON or Jettons to this address.<br />This is a TON testnet address.
-              </p>
+                  <p style={{ textAlign: "center", fontSize: 11, color: "#94a3b8", fontFamily: "JetBrains Mono", marginBottom: 20 }}>
+                    Opens Tonkeeper · MyTonWallet · or any TON wallet
+                  </p>
 
-              {walletAddress && (
-                <a 
-                  href={`https://testnet.tonscan.org/address/${walletAddress}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block text-center text-[#2563eb] font-bold text-sm mb-6 hover:underline"
-                >
-                  View on Tonscan ↗
-                </a>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                    <div style={{ flex: 1, height: 1, background: "#e0e8ff" }} />
+                    <span style={{ color: "#94a3b8", fontSize: 11, fontFamily: "JetBrains Mono", letterSpacing: 1 }}>OR</span>
+                    <div style={{ flex: 1, height: 1, background: "#e0e8ff" }} />
+                  </div>
+
+                  <div className="bg-[#f8faff] border border-[#e0e8ff] rounded-2xl p-4 mb-4">
+                    <p className="font-mono text-xs text-[#1a1a2e] break-all leading-loose tracking-tight select-all">
+                      {walletAddress}
+                    </p>
+                    <button 
+                      onClick={copyAddress}
+                      className="mt-4 w-full flex items-center justify-center gap-2 bg-[#2563eb] text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition"
+                    >
+                      <Copy className="w-4 h-4" /> <span id="copy-btn-text">Copy Address</span>
+                    </button>
+                  </div>
+
+                  <p className="text-center text-[#94a3b8] text-xs mb-4">
+                    Only send TON or Jettons to this address.<br />This is a TON testnet address.
+                  </p>
+
+                  {walletAddress && (
+                    <a 
+                      href={`https://testnet.tonscan.org/address/${walletAddress}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block text-center text-[#2563eb] font-bold text-sm mb-6 hover:underline"
+                    >
+                      View on Tonscan ↗
+                    </a>
+                  )}
+
+                  <button 
+                    onClick={() => {
+                      setShowFund(false);
+                      setTonConnectStep("idle");
+                    }}
+                    className="w-full bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-sm hover:bg-slate-200 transition"
+                  >
+                    Close
+                  </button>
+                </>
               )}
 
-              <button 
-                onClick={() => setShowFund(false)}
-                className="w-full bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-sm hover:bg-slate-200 transition"
-              >
-                Close
-              </button>
+              {tonConnectStep === "amount" && (
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 8 }}>
+                    How much TON to fund?
+                  </div>
+                  <input
+                    type="number"
+                    value={fundAmount}
+                    onChange={e => setFundAmount(e.target.value)}
+                    style={{
+                      width: "100%", padding: "14px", border: "1px solid #e0e8ff",
+                      borderRadius: 12, fontSize: 18, fontFamily: "JetBrains Mono",
+                      color: "#1a1a2e", background: "#f0f4ff", textAlign: "center",
+                      marginBottom: 8, outline: "none"
+                    }}
+                  />
+                  <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", marginBottom: 16, fontFamily: "JetBrains Mono" }}>
+                    ≈ ${(parseFloat(fundAmount || "0") * (price ?? 0)).toFixed(2)} USD
+                  </div>
+                  <button
+                    style={{
+                      width: "100%", padding: "14px", background: "#2563eb", color: "#fff",
+                      borderRadius: 12, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer"
+                    }}
+                    onClick={() => {
+                      const nanoAmount = Math.floor(parseFloat(fundAmount) * 1e9);
+                      const tonLink = `ton://transfer/${walletAddress}?amount=${nanoAmount}&text=TonPilot+Vault+Fund`;
+                      window.open(tonLink, "_blank");
+                      setTonConnectStep("success");
+                    }}
+                  >
+                    Open My Wallet →
+                  </button>
+                  <button
+                    style={{
+                      width: "100%", padding: "10px", background: "none", border: "none",
+                      color: "#94a3b8", fontSize: 13, cursor: "pointer", marginTop: 8
+                    }}
+                    onClick={() => setTonConnectStep("idle")}
+                  >
+                    ← Back
+                  </button>
+                </div>
+              )}
+
+              {tonConnectStep === "success" && (
+                <div style={{ textAlign: "center", padding: "20px 0" }}>
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>✅</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a2e", marginBottom: 8 }}>
+                    Wallet opened!
+                  </div>
+                  <div style={{ fontSize: 12, color: "#64748b", fontFamily: "JetBrains Mono", lineHeight: 1.6 }}>
+                    Approve the transaction in your wallet app. Your vault balance updates automatically within 30 seconds.
+                  </div>
+                  <button
+                    style={{
+                      marginTop: 20, width: "100%", padding: "12px", background: "#f0f4ff", border: "1px solid #e0e8ff",
+                      borderRadius: 12, color: "#2563eb", fontSize: 13, fontWeight: 600, cursor: "pointer"
+                    }}
+                    onClick={() => {
+                      setTonConnectStep("idle");
+                      setShowFund(false);
+                      if (userId) fetchData(userId);
+                    }}
+                  >
+                    Done — Check My Balance
+                  </button>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}
@@ -1151,7 +1263,7 @@ export default function ArcticDashboard() {
                     <div className="w-6 h-6 rounded-full bg-[#009393] flex items-center justify-center">
                       <span className="text-white text-[8px] font-bold">USD₮</span>
                     </div>
-                    <span className="text-lg font-mono font-bold text-[#1a1a2e] opacity-50">Market Rate</span>
+                    <span className="text-lg font-mono font-bold text-[#1a1a2e] opacity-50">{(parseFloat(swapAmount || "0") * price).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
