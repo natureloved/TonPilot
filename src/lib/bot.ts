@@ -1,38 +1,9 @@
-import crypto from "crypto";
 import { Bot, Context, InlineKeyboard } from "grammy";
 import { parseIntent } from "@/lib/intent-parser";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { createAgenticWallet, executeMcpAction } from "@/lib/ton";
 import { Rule, User } from "@/types";
 import cronParser from "cron-parser";
-
-// ── Encryption Utils ─────────────────────────────────────────────────────────
-
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString("hex");
-const IV_LENGTH = 16;
-
-function encryptMnemonic(text: string): string {
-  const iv = crypto.randomBytes(IV_LENGTH);
-  const key = Buffer.from(ENCRYPTION_KEY.padEnd(32, '0').slice(0, 32));
-  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
-  let encrypted = cipher.update(text);
-  encrypted = Buffer.concat([encrypted, cipher.final()]);
-  return iv.toString("hex") + ":" + encrypted.toString("hex");
-}
-
-export function decryptMnemonic(text: string): string {
-  if (!text.includes(":")) {
-    return Buffer.from(text, "base64").toString();
-  }
-  const textParts = text.split(":");
-  const iv = Buffer.from(textParts.shift()!, "hex");
-  const encryptedText = Buffer.from(textParts.join(":"), "hex");
-  const key = Buffer.from(ENCRYPTION_KEY.padEnd(32, '0').slice(0, 32));
-  const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
-  let decrypted = decipher.update(encryptedText);
-  decrypted = Buffer.concat([decrypted, decipher.final()]);
-  return decrypted.toString();
-}
 
 // ── Bot Instance ─────────────────────────────────────────────────────────────
 
@@ -147,7 +118,7 @@ bot.callbackQuery("create_wallet", async (ctx) => {
       { parse_mode: "Markdown" }
     );
 
-    const mnemonicEncoded = encryptMnemonic(mnemonic.join(" "));
+    const mnemonicEncoded = Buffer.from(mnemonic.join(" "), "utf-8").toString("base64");
 
     await supabaseAdmin
       .from("users")
@@ -677,7 +648,7 @@ bot.callbackQuery("confirm_export", async (ctx) => {
 
   let mnemonicText = "";
   try {
-    mnemonicText = decryptMnemonic(user.wallet_mnemonic_enc);
+    mnemonicText = Buffer.from(user.wallet_mnemonic_enc, "base64").toString("utf-8");
   } catch (err) {
     mnemonicText = "Error decrypting mnemonic.";
     console.error("[export] decrypt error:", err);
@@ -869,7 +840,7 @@ bot.callbackQuery(/^confirm_rule:(.+)$/, async (ctx) => {
         return;
       }
       
-      const mnemonic = decryptMnemonic(userData.wallet_mnemonic_enc);
+      const mnemonic = Buffer.from(userData.wallet_mnemonic_enc, "base64").toString("utf-8");
       const execResult = await executeMcpAction(mnemonic, pending.action);
       
       await supabaseAdmin.from("execution_logs").insert({

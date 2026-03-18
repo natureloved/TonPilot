@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getTonBalance, getTonPrice, executeMcpAction } from "@/lib/ton";
 import { Rule, User, ScheduleTrigger, PriceTrigger, BalanceTrigger } from "@/types";
-import { bot, decryptMnemonic, computeNextRun } from "@/lib/bot";
+import { bot, computeNextRun } from "@/lib/bot";
 import { sendWeeklyReports } from "@/lib/weekly-report";
 import cronParser from "cron-parser";
 
@@ -80,7 +80,10 @@ export async function GET(req: NextRequest) {
           .eq("id", rule.id);
 
         // Execute the action
-        const mnemonic = decryptMnemonic(rule.users.wallet_mnemonic_enc);
+        const mnemonic = Buffer.from(
+          rule.users.wallet_mnemonic_enc,
+          "base64"
+        ).toString("utf-8");
 
         const execResult = await executeMcpAction(mnemonic, rule.action);
 
