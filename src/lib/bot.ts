@@ -792,7 +792,7 @@ bot.on("message:text", async (ctx) => {
       `Got it — here's what I'll set up:\n\n` +
         `📋 <b>${name}</b>\n` +
         `⚡ When: ${triggerDesc}\n` +
-        `🌍 Timezone: ${trigger.timezone || "UTC"}\n` +
+        `🌍 Timezone: ${(trigger as any).timezone || "UTC"}\n` +
         `🎯 Do: ${actionDesc}\n\n` +
         `Shall I activate this rule?`,
       { parse_mode: "HTML", reply_markup: keyboard }
