@@ -204,7 +204,8 @@ export default function ArcticDashboard() {
   const fetchData = useCallback(async (uid: string, isBackground: boolean = false) => {
     if (!isBackground) setLoading(true);
     try {
-      const res = await fetch(`/api/user/sync?userId=${uid}`);
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const res = await fetch(`/api/user/sync?userId=${uid}&tz=${encodeURIComponent(tz)}`);
       if (!res.ok) throw new Error("Sync API failed");
       
       const { data, success } = await res.json();
@@ -228,6 +229,7 @@ export default function ArcticDashboard() {
     const isActive = activeTab === id;
     return (
       <button 
+        type="button"
         onClick={() => setActiveTab(id)}
         className="flex flex-col items-center gap-1 transition-all outline-none"
       >
@@ -551,7 +553,7 @@ export default function ArcticDashboard() {
       <section>
         <div className="flex justify-between items-center mb-4 px-1">
           <h3 className="font-bold text-[#1a1a2e]">Active Rules</h3>
-          <button onClick={() => setActiveTab("rules")} className="text-xs font-bold text-[#2563eb] flex items-center gap-0.5">
+          <button type="button" onClick={() => setActiveTab("rules")} className="text-xs font-bold text-[#2563eb] flex items-center gap-0.5">
             See all <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -582,7 +584,7 @@ export default function ArcticDashboard() {
       <section>
         <div className="flex justify-between items-center mb-4 px-1">
           <h3 className="font-bold text-[#1a1a2e]">Recent Activity</h3>
-          <button onClick={() => setActiveTab("activity")} className="text-xs font-bold text-[#2563eb] flex items-center gap-0.5">
+          <button type="button" onClick={() => setActiveTab("activity")} className="text-xs font-bold text-[#2563eb] flex items-center gap-0.5">
             All <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -857,6 +859,7 @@ export default function ArcticDashboard() {
           {/* Centered Tokens Button Positioning */}
           <div className="w-16 h-16 -mt-10 flex flex-col items-center justify-center relative">
             <button 
+              type="button"
               onClick={() => setActiveTab("tokens")}
               className={`w-14 h-14 text-white rounded-full flex items-center justify-center shadow-xl mb-1 shadow-blue-300 active:scale-90 hover:scale-105 transition-all outline-none border-4 border-white ${activeTab === "tokens" ? "bg-blue-600 scale-105" : "bg-[#2563eb]"}`}
             >

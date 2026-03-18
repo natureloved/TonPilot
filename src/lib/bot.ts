@@ -726,7 +726,7 @@ bot.on("message:text", async (ctx) => {
     // Check user has a wallet
     const { data: user } = await supabaseAdmin
       .from("users")
-      .select("wallet_address")
+      .select("wallet_address, timezone")
       .eq("id", telegramId)
       .single();
 
@@ -741,7 +741,7 @@ bot.on("message:text", async (ctx) => {
     await ctx.replyWithChatAction("typing");
 
     // Parse the intent with Claude
-    const parsed = await parseIntent(text);
+    const parsed = await parseIntent(text, user?.timezone || "UTC");
 
     if (!parsed.success) {
       if (parsed.clarification) {
@@ -1055,7 +1055,7 @@ export function computeNextRun(trigger: any): string {
   }
 
   try {
-    const interval = cronParser.parse(trigger.cron, { tz: "UTC" });
+    const interval = cronParser.parse(trigger.cron, { tz: trigger.timezone || "UTC" });
     const nextDateStr = interval.next().toISOString();
     return nextDateStr || new Date().toISOString();
   } catch (err) {

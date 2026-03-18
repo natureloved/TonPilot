@@ -37,7 +37,7 @@ Instant execution (user wants it right now):
 { "type": "instant" }
 
 Schedule trigger:
-{ "type": "schedule", "cron": "<cron expression>", "timezone": "UTC" }
+{ "type": "schedule", "cron": "<cron expression>", "timezone": "<user local timezone>" }
 
 Price trigger:
 { "type": "price_above" | "price_below", "asset": "TON", "threshold": <number>, "currency": "USD" }
@@ -70,18 +70,18 @@ Alert-only action:
 - If no time is specified for a schedule, default to 09:00 UTC
 - Always generate a short descriptive name for the rule (e.g. "Weekly DCA", "Price Alert", "Monthly Send")
 
-IMPORTANT: All times must be converted to UTC. 
-If the user says '11:25pm' assume it is their local 
-time. Since we cannot know their timezone, save it 
-as-is in UTC and note in the clarification field 
-that the time is treated as UTC.`;
+IMPORTANT: The user is in timezone: {{USER_TIMEZONE}}.
+When the user specifies a time (e.g. "9am"), output the cron expression corresponding to 9am IN THEIR LOCAL TIMEZONE.
+Do NOT convert it to UTC.
+Set the "timezone" field to match their exact local timezone.`;
 
-export async function parseIntent(userMessage: string): Promise<ParsedIntent> {
+export async function parseIntent(userMessage: string, userTimezone: string = "UTC"): Promise<ParsedIntent> {
+  const prompt = SYSTEM_PROMPT.replace("{{USER_TIMEZONE}}", userTimezone);
   try {
     const response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 500,
-      system: SYSTEM_PROMPT,
+      system: prompt,
       messages: [{ role: "user", content: userMessage }],
     });
 

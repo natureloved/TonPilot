@@ -7,6 +7,7 @@ export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get("userId");
+  const tz = req.nextUrl.searchParams.get("tz");
 
   if (!userId) {
     return NextResponse.json({ error: "Missing userId" }, { status: 400 });
@@ -22,6 +23,13 @@ export async function GET(req: NextRequest) {
 
     if (userError || !user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (tz) {
+      await supabaseAdmin
+        .from("users")
+        .update({ timezone: tz })
+        .eq("id", userId);
     }
 
     const walletAddress = user.wallet_address;
