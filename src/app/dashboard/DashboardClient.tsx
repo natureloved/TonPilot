@@ -83,13 +83,14 @@ function cronToHuman(cron: string): string {
 
   const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
 
-  // Format time
+  // Format time (Cron is always UTC, so we convert perfectly to browser local time)
   const h = parseInt(hour, 10);
   const m = parseInt(minute, 10);
-  const period = h >= 12 ? "PM" : "AM";
-  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  const minStr = m === 0 ? "00" : m < 10 ? `0${m}` : `${m}`;
-  const timeStr = `${hour12}:${minStr} ${period} UTC`;
+  
+  const d = new Date();
+  d.setUTCHours(h, m, 0, 0);
+  
+  const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
   const days: Record<string, string> = {
     "0": "Sunday", "1": "Monday", "2": "Tuesday",

@@ -71,9 +71,8 @@ Alert-only action:
 - Always generate a short descriptive name for the rule (e.g. "Weekly DCA", "Price Alert", "Monthly Send")
 
 IMPORTANT: The user is in timezone: {{USER_TIMEZONE}}.
-When the user specifies a time (e.g. "9am"), output the cron expression corresponding to 9am IN THEIR LOCAL TIMEZONE.
-Do NOT convert it to UTC.
-Set the "timezone" field to match their exact local timezone.`;
+When the user specifies a time (e.g. "9am"), you MUST logically convert this time from their local timezone to UTC and output the UTC cron expression.
+Vercel's Cron scheduler runs entirely on UTC, so ALL crons you create MUST be in UTC.`;
 
 export async function parseIntent(userMessage: string, userTimezone: string = "UTC"): Promise<ParsedIntent> {
   const prompt = SYSTEM_PROMPT.replace("{{USER_TIMEZONE}}", userTimezone);
