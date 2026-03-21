@@ -183,7 +183,7 @@ export async function executeMcpAction(
           }
         }
       }
-      return { success: true, txHash: `TonSDK-Send-Seqno-${seqno}` };
+      return { success: true, txHash: wallet.address.toString({ urlSafe: true, bounceable: false }) };
     }
     
     if (action.type === "swap") {
@@ -227,7 +227,7 @@ export async function executeMcpAction(
            }
         }
       }
-      return { success: true, txHash: `TonSDK-Swap-Seqno-${seqno}` };
+      return { success: true, txHash: wallet.address.toString({ urlSafe: true, bounceable: false }) };
     }
     
     return { success: false, error: "Action not supported via TonSDK natively yet" };

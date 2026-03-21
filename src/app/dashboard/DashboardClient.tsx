@@ -648,7 +648,7 @@ export default function ArcticDashboard() {
                     </div>
                   </div>
                   {log.tx_hash && (
-                    <a href={`https://testnet.tonscan.org/tx/${log.tx_hash}`} target="_blank" className="text-[#2563eb] hover:bg-blue-50 p-1.5 rounded-lg transition-all">
+                    <a href={`https://${process.env.NEXT_PUBLIC_TON_NETWORK === 'testnet' ? 'testnet.' : ''}tonscan.org/${log.tx_hash.startsWith('U') || log.tx_hash.startsWith('E') ? 'address' : 'tx'}/${log.tx_hash}`} target="_blank" className="text-[#2563eb] hover:bg-blue-50 p-1.5 rounded-lg transition-all">
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   )}
@@ -720,7 +720,7 @@ export default function ArcticDashboard() {
                   </div>
                 </div>
                 {log.tx_hash && (
-                  <a href={`https://testnet.tonscan.org/tx/${log.tx_hash}`} target="_blank" className="flex items-center gap-1 text-[#2563eb] font-mono text-[10px] font-bold">
+                  <a href={`https://${process.env.NEXT_PUBLIC_TON_NETWORK === 'testnet' ? 'testnet.' : ''}tonscan.org/${log.tx_hash.startsWith('U') || log.tx_hash.startsWith('E') ? 'address' : 'tx'}/${log.tx_hash}`} target="_blank" className="flex items-center gap-1 text-[#2563eb] font-mono text-[10px] font-bold">
                     View <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                 )}

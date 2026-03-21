@@ -241,10 +241,12 @@ async function sendExecutionNotification(
       }
 
       if (result.txHash) {
+        const isAddr = result.txHash.startsWith("U") || result.txHash.startsWith("E");
+        const path = isAddr ? "address" : "tx";
         const explorer =
           process.env.TON_NETWORK === "testnet"
-            ? "https://testnet.tonscan.org/tx"
-            : "https://tonscan.org/tx";
+            ? `https://testnet.tonscan.org/${path}`
+            : `https://tonscan.org/${path}`;
         message += `\n[View transaction](${explorer}/${result.txHash})`;
       }
 
