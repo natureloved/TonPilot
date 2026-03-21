@@ -120,11 +120,15 @@ export async function executeMcpAction(
     
     const client = new TonClient({
       endpoint,
-      apiKey: process.env.TONCENTER_API_KEY
+      apiKey: isTestnet ? undefined : process.env.TONCENTER_API_KEY
     });
     
     const contract = client.open(wallet);
     let seqno = 0;
+    
+    // Helper to avoid 1 req/sec strict rate-limit on testnet toncenter without an API key
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
     try {
         seqno = await contract.getSeqno();
     } catch (e: any) {
@@ -138,6 +142,7 @@ export async function executeMcpAction(
     
     let balance = 0;
     try {
+        if (isTestnet) await delay(1200); // Prevent 429
         const balanceNano = await client.getBalance(wallet.address);
         balance = Number(balanceNano) / 1e9;
     } catch (e: any) {
@@ -151,6 +156,8 @@ export async function executeMcpAction(
       }
       const nanoAmount = Math.floor(action.amount * 1e9).toString();
       
+      if (isTestnet) await delay(1200); // Prevent 429
+
       const tx = await contract.sendTransfer({
         seqno,
         secretKey: keyPair.secretKey,
@@ -179,6 +186,9 @@ export async function executeMcpAction(
       // NOTE: For a real swap, we would instantiate the DeDust/Ston.fi SDK here,
       // construct the payload, and send it. 
       // For now, we perform a self-transfer to indicate success on testnet.
+      
+      if (isTestnet) await delay(1200); // Prevent 429
+
       const tx = await contract.sendTransfer({
         seqno,
         secretKey: keyPair.secretKey,
