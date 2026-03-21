@@ -136,8 +136,14 @@ export async function executeMcpAction(
         }
     }
     
-    const addrStr = wallet.address.toString({ urlSafe: true, bounceable: false });
-    const balance = await getTonBalance(addrStr);
+    let balance = 0;
+    try {
+        const balanceNano = await client.getBalance(wallet.address);
+        balance = Number(balanceNano) / 1e9;
+    } catch (e: any) {
+        console.warn("[TONSDK] Could not fetch balance, assuming 0:", e.message);
+        balance = 0;
+    }
 
     if (action.type === "send") {
       if (balance < action.amount + 0.01) {
