@@ -120,7 +120,7 @@ export async function executeMcpAction(
     
     const client = new TonClient({
       endpoint,
-      apiKey: isTestnet ? undefined : process.env.TONCENTER_API_KEY
+      apiKey: process.env.TONCENTER_API_KEY
     });
     
     const contract = client.open(wallet);
@@ -156,20 +156,33 @@ export async function executeMcpAction(
       }
       const nanoAmount = Math.floor(action.amount * 1e9).toString();
       
-      if (isTestnet) await delay(1200); // Prevent 429
-
-      const tx = await contract.sendTransfer({
-        seqno,
-        secretKey: keyPair.secretKey,
-        sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
-        messages: [
-          internal({
-            to: action.toAddress,
-            value: nanoAmount,
-            body: "TonPilot: Send Action"
-          })
-        ]
-      });
+      let tx: any = null;
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          if (isTestnet) await delay(1500); // Prevent 429
+          tx = await contract.sendTransfer({
+            seqno,
+            secretKey: keyPair.secretKey,
+            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+            messages: [
+              internal({
+                to: action.toAddress,
+                value: nanoAmount,
+                body: "TonPilot: Send Action"
+              })
+            ]
+          });
+          break; // Success
+        } catch (e: any) {
+          if (e.message?.includes('429') && retries > 1) {
+             retries--;
+             await delay(2000);
+          } else {
+             throw e;
+          }
+        }
+      }
       return { success: true, txHash: `TonSDK-Send-Seqno-${seqno}` };
     }
     
@@ -187,20 +200,33 @@ export async function executeMcpAction(
       // construct the payload, and send it. 
       // For now, we perform a self-transfer to indicate success on testnet.
       
-      if (isTestnet) await delay(1200); // Prevent 429
-
-      const tx = await contract.sendTransfer({
-        seqno,
-        secretKey: keyPair.secretKey,
-        sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
-        messages: [
-          internal({
-            to: wallet.address.toString(),
-            value: "1000000",
-            body: `TonPilot: Automated Swap ${action.amount} ${action.fromAsset} to ${action.toAsset}`
-          })
-        ]
-      });
+      let tx: any = null;
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          if (isTestnet) await delay(1500); // Prevent 429
+          tx = await contract.sendTransfer({
+            seqno,
+            secretKey: keyPair.secretKey,
+            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+            messages: [
+              internal({
+                to: wallet.address.toString(),
+                value: "1000000",
+                body: `TonPilot: Automated Swap ${action.amount} ${action.fromAsset} to ${action.toAsset}`
+              })
+            ]
+          });
+          break;
+        } catch (e: any) {
+           if (e.message?.includes('429') && retries > 1) {
+             retries--;
+             await delay(2000);
+           } else {
+             throw e;
+           }
+        }
+      }
       return { success: true, txHash: `TonSDK-Swap-Seqno-${seqno}` };
     }
     
