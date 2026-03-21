@@ -83,10 +83,17 @@ function cronToHuman(cron: string): string {
 
   const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
 
+  const m = parseInt(minute, 10);
+  const minStr = m === 0 ? "00" : m < 10 ? `0${m}` : `${m}`;
+  
+  if (hour === "*") {
+    // Handling "Every hour" rules
+    if (dayOfWeek === "*" && dayOfMonth === "*" && month === "*") return `Every hour at minute ${minStr}`;
+    return `Every hour at minute ${minStr} (specific days)`;
+  }
+
   // Format time (Cron is always UTC, so we convert perfectly to browser local time)
   const h = parseInt(hour, 10);
-  const m = parseInt(minute, 10);
-  
   const d = new Date();
   d.setUTCHours(h, m, 0, 0);
   
@@ -114,7 +121,6 @@ function cronToHuman(cron: string): string {
   if (dayOfWeek !== "*" && dayOfMonth === "*" && month === "*") return `Every ${days[dayOfWeek] ?? "day"} at ${timeStr}`;
   if (dayOfMonth !== "*" && dayOfWeek === "*" && month === "*") return `${ordinal(parseInt(dayOfMonth, 10))} of every month at ${timeStr}`;
   if (dayOfMonth !== "*" && month !== "*") return `${ordinal(parseInt(dayOfMonth, 10))} ${months[month] ?? ""} at ${timeStr}`;
-  if (hour === "*") return `Every hour at :${minStr} UTC`;
 
   return `Every day at ${timeStr}`;
 }
