@@ -168,7 +168,7 @@ export async function executeMcpAction(
             messages: [
               internal({
                 to: action.toAddress,
-                value: nanoAmount,
+                value: BigInt(nanoAmount),
                 body: "TonPilot: Send Action"
               })
             ]
@@ -212,7 +212,7 @@ export async function executeMcpAction(
             messages: [
               internal({
                 to: wallet.address.toString(),
-                value: "1000000",
+                value: BigInt(1000000), // 0.001 TON in NanoTON
                 body: `TonPilot: Automated Swap ${action.amount} ${action.fromAsset} to ${action.toAsset}`
               })
             ]
