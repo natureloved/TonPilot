@@ -136,7 +136,13 @@ export async function executeMcpAction(
         }
     }
     
+    const addrStr = wallet.address.toString({ urlSafe: true, bounceable: false });
+    const balance = await getTonBalance(addrStr);
+
     if (action.type === "send") {
+      if (balance < action.amount + 0.01) {
+        return { success: false, error: `Insufficient TON balance. Have ${balance.toFixed(3)}, need ${(action.amount + 0.01).toFixed(3)}.` };
+      }
       const nanoAmount = Math.floor(action.amount * 1e9).toString();
       
       const tx = await contract.sendTransfer({
@@ -155,6 +161,15 @@ export async function executeMcpAction(
     }
     
     if (action.type === "swap") {
+      if (action.fromAsset === "TON") {
+        if (balance < action.amount + 0.03) {
+          return { success: false, error: `Insufficient TON balance. Have ${balance.toFixed(3)}, need ${(action.amount + 0.03).toFixed(3)}.` };
+        }
+      } else {
+        if (balance < 0.03) {
+          return { success: false, error: `Insufficient TON balance for gas. Have ${balance.toFixed(3)}, need 0.03.` };
+        }
+      }
       // NOTE: For a real swap, we would instantiate the DeDust/Ston.fi SDK here,
       // construct the payload, and send it. 
       // For now, we perform a self-transfer to indicate success on testnet.
@@ -176,7 +191,14 @@ export async function executeMcpAction(
     return { success: false, error: "Action not supported via TonSDK natively yet" };
     
   } catch (err: any) {
-    console.error(`[TONSDK] native transaction error: ${err.message}`);
-    return { success: false, error: err.message };
+    console.error(`[TONSDK] native transaction error:`, err);
+    let errorMsg = err.message;
+    if (err.isAxiosError && err.response?.data?.error) {
+      errorMsg = err.response.data.error;
+    }
+    if (errorMsg.includes("Failed to unpack account state") || errorMsg.includes("status code 500")) {
+      errorMsg = "Transaction failed: Wallet uninitialized or insufficient gas.";
+    }
+    return { success: false, error: errorMsg };
   }
 }
