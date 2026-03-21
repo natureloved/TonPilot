@@ -69,6 +69,7 @@ Alert-only action:
 - If the user says "every week" without specifying a day, default to Monday
 - If no time is specified for a schedule, default to 09:00 UTC
 - Always generate a short descriptive name for the rule (e.g. "Weekly DCA", "Price Alert", "Monthly Send")
+- CRITICAL: NEVER drop or round the minutes! If the user says "7:35pm", the cron minute MUST be 35. Do not output "0 19 * * *". You must output "35 19 * * *".
 
 IMPORTANT: The user is in timezone: {{USER_TIMEZONE}}.
 When the user specifies a time (e.g. "9am"), you MUST logically convert this time from their local timezone to UTC and output the UTC cron expression.
