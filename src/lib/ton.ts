@@ -59,7 +59,9 @@ export async function createAgenticWallet(): Promise<{
 
 export async function getTonBalance(address: string): Promise<number> {
   try {
-    const response = await axios.get(`https://${process.env.TON_NETWORK === 'testnet' ? 'testnet.' : ''}toncenter.com/api/v2/getAddressBalance?address=${address}`);
+    const apiKey = process.env.TONCENTER_API_KEY;
+    const url = `https://${process.env.TON_NETWORK === 'testnet' ? 'testnet.' : ''}toncenter.com/api/v2/getAddressBalance?address=${address}${apiKey ? `&api_key=${apiKey}` : ''}`;
+    const response = await axios.get(url);
     return Number(response.data.result) / 1e9;
   } catch (err) {
     console.error("[getTonBalance] error:", err);
@@ -211,7 +213,7 @@ export async function executeMcpAction(
             sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
             messages: [
               internal({
-                to: wallet.address.toString(),
+                to: "EQBfBWT7X2BHg9tXAxzhz2aKiNTU1tpt5NkuUpEavh_B2zPZ", // STON.fi DEX Router
                 value: BigInt(1000000), // 0.001 TON in NanoTON
                 body: `TonPilot: Automated Swap ${action.amount} ${action.fromAsset} to ${action.toAsset}`
               })
