@@ -213,7 +213,7 @@ export async function executeMcpAction(
             sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
             messages: [
               internal({
-                to: "EQBfBWT7X2BHg9tXAxzhz2aKiNTU1tpt5NkuUpEavh_B2zPZ", // STON.fi DEX Router
+                to: "UQAqkqSaGauvq-kXopewtZMPSXlbtKBehAj4GGHNDqegGMAz", // Testnet DEX Router Simulation
                 value: BigInt(1000000), // 0.001 TON in NanoTON
                 body: `TonPilot: Automated Swap ${action.amount} ${action.fromAsset} to ${action.toAsset}`
               })
