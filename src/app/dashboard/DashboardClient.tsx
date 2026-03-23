@@ -158,9 +158,8 @@ function relativeTime(dateStr: string, full = false): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    hour12: true,
-    timeZone: "UTC",
-  }) + " UTC";
+    hour12: true
+  });
 }
 
 const truncateAddr = (addr: string) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "None";
@@ -1331,9 +1330,8 @@ function RuleCard({ rule, onToggle, onDelete, extended = false }: { rule: Rule, 
       weekday: "short",
       hour: "2-digit", 
       minute: "2-digit",
-      hour12: true,
-      timeZone: "UTC"
-    }) + " UTC";
+      hour12: true
+    });
     
     return `${nextRunText(rule.next_run_at)} · ${timeStr}`;
   };

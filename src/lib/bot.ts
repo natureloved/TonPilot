@@ -1053,7 +1053,7 @@ export function computeNextRun(trigger: any): string {
   }
 
   try {
-    const interval = cronParser.parse(trigger.cron, { tz: trigger.timezone || "UTC" });
+    const interval = cronParser.parse(trigger.cron, { tz: "UTC" });
     const nextDateStr = interval.next().toISOString();
     return nextDateStr || new Date().toISOString();
   } catch (err) {
