@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Rule, ExecutionLog, SwapAction, SendAction, ScheduleTrigger } from "@/types";
+import { TonConnectButton, useTonConnectUI, useTonWallet } from "@tonconnect/ui-react";
 
 // ── Types & Helpers ──────────────────────────────────────────────────────────
 
@@ -168,6 +169,8 @@ const truncateAddr = (addr: string) => addr ? `${addr.slice(0, 6)}...${addr.slic
 
 export default function ArcticDashboard() {
   const router = useRouter();
+  const [tonConnectUI] = useTonConnectUI();
+  const userWallet = useTonWallet();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [loading, setLoading] = useState(true);
@@ -980,29 +983,31 @@ export default function ArcticDashboard() {
 
               {tonConnectStep === "idle" && (
                 <>
-                  <button 
-                    style={{
-                      width: "100%", padding: "16px", background: "#2563eb", color: "#fff",
-                      borderRadius: 14, border: "none", fontSize: 15, fontWeight: 700,
-                      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                      gap: 10, marginBottom: 12,
-                    }}
-                    onClick={handleTonConnect}
-                  >
-                    <img 
-                      src="https://ton.org/download/ton_symbol.png" 
-                      width={22} height={22} style={{ borderRadius: "50%" }}
-                    />
-                    Connect Wallet & Fund
-                  </button>
-
-                  <p style={{ textAlign: "center", fontSize: 11, color: "#94a3b8", fontFamily: "JetBrains Mono", marginBottom: 20 }}>
-                    Opens Tonkeeper · MyTonWallet · or any TON wallet
-                  </p>
+                  <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+                    <TonConnectButton />
+                  </div>
+                  
+                  {userWallet ? (
+                    <button 
+                      style={{
+                        width: "100%", padding: "16px", background: "#2563eb", color: "#fff",
+                        borderRadius: 14, border: "none", fontSize: 15, fontWeight: 700,
+                        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                        gap: 10, marginBottom: 16,
+                      }}
+                      onClick={handleTonConnect}
+                    >
+                      <ArrowDown className="w-5 h-5" /> Execute Deposit
+                    </button>
+                  ) : (
+                    <p style={{ textAlign: "center", fontSize: 11, color: "#94a3b8", fontFamily: "JetBrains Mono", marginBottom: 20 }}>
+                      Connect your personal wallet above first
+                    </p>
+                  )}
 
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
                     <div style={{ flex: 1, height: 1, background: "#e0e8ff" }} />
-                    <span style={{ color: "#94a3b8", fontSize: 11, fontFamily: "JetBrains Mono", letterSpacing: 1 }}>OR</span>
+                    <span style={{ color: "#94a3b8", fontSize: 11, fontFamily: "JetBrains Mono", letterSpacing: 1 }}>OR MANUALLY</span>
                     <div style={{ flex: 1, height: 1, background: "#e0e8ff" }} />
                   </div>
 
@@ -1014,31 +1019,16 @@ export default function ArcticDashboard() {
                       onClick={copyAddress}
                       className="mt-4 w-full flex items-center justify-center gap-2 bg-[#2563eb] text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition"
                     >
-                      <Copy className="w-4 h-4" /> <span id="copy-btn-text">Copy Address</span>
+                      <Copy className="w-4 h-4" /> <span id="copy-btn-text">Copy Vault Address</span>
                     </button>
                   </div>
-
-                  <p className="text-center text-[#94a3b8] text-xs mb-4">
-                    Only send TON or Jettons to this address.<br />This is a TON testnet address.
-                  </p>
-
-                  {walletAddress && (
-                    <a 
-                      href={`https://testnet.tonscan.org/address/${walletAddress}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block text-center text-[#2563eb] font-bold text-sm mb-6 hover:underline"
-                    >
-                      View on Tonscan ↗
-                    </a>
-                  )}
 
                   <button 
                     onClick={() => {
                       setShowFund(false);
                       setTonConnectStep("idle");
                     }}
-                    className="w-full bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-sm hover:bg-slate-200 transition"
+                    className="w-full bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-sm hover:bg-slate-200 transition mt-4"
                   >
                     Close
                   </button>
@@ -1069,14 +1059,22 @@ export default function ArcticDashboard() {
                       width: "100%", padding: "14px", background: "#2563eb", color: "#fff",
                       borderRadius: 12, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer"
                     }}
-                    onClick={() => {
-                      const nanoAmount = Math.floor(parseFloat(fundAmount) * 1e9);
-                      const tonLink = `ton://transfer/${walletAddress}?amount=${nanoAmount}&text=TonPilot+Vault+Fund`;
-                      window.open(tonLink, "_blank");
-                      setTonConnectStep("success");
+                    onClick={async () => {
+                      if (!userWallet || !walletAddress) return;
+                      try {
+                        const nanoAmount = Math.floor(parseFloat(fundAmount) * 1e9).toString();
+                        await tonConnectUI.sendTransaction({
+                          validUntil: Math.floor(Date.now() / 1000) + 300,
+                          messages: [{ address: walletAddress, amount: nanoAmount }],
+                        });
+                        setTonConnectStep("success");
+                      } catch (err) {
+                        console.error(err);
+                        alert("Transaction cancelled or failed.");
+                      }
                     }}
                   >
-                    Open My Wallet →
+                    Confirm in Wallet →
                   </button>
                   <button
                     style={{
@@ -1094,10 +1092,10 @@ export default function ArcticDashboard() {
                 <div style={{ textAlign: "center", padding: "20px 0" }}>
                   <div style={{ fontSize: 32, marginBottom: 12 }}>✅</div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a2e", marginBottom: 8 }}>
-                    Wallet opened!
+                    Deposit Sent!
                   </div>
                   <div style={{ fontSize: 12, color: "#64748b", fontFamily: "JetBrains Mono", lineHeight: 1.6 }}>
-                    Approve the transaction in your wallet app. Your vault balance updates automatically within 30 seconds.
+                    Your vault balance will update automatically within 15-30 seconds once confirmed.
                   </div>
                   <button
                     style={{

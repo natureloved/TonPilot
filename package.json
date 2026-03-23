@@ -13,6 +13,7 @@
     "@supabase/supabase-js": "^2.43.4",
     "@ton/crypto": "^3.3.0",
     "@ton/ton": "^15.0.0",
+    "@tonconnect/ui-react": "^2.4.2",
     "@twa-dev/sdk": "^8.0.2",
     "axios": "^1.7.2",
     "cron-parser": "^5.5.0",
