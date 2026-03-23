@@ -215,6 +215,7 @@ export async function executeMcpAction(
               internal({
                 to: "UQAqkqSaGauvq-kXopewtZMPSXlbtKBehAj4GGHNDqegGMAz", // Testnet DEX Router Simulation
                 value: BigInt(1000000), // 0.001 TON in NanoTON
+                bounce: false,
                 body: `TonPilot: Automated Swap ${action.amount} ${action.fromAsset} to ${action.toAsset}`
               })
             ]

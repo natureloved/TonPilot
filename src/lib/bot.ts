@@ -747,7 +747,7 @@ bot.on("message:text", async (ctx) => {
         await ctx.reply(`🤔 ${parsed.clarification}`);
       } else if (parsed.error === "not_a_rule") {
         await ctx.reply(
-          `I can help you automate TON transactions! Try something like:\n• _"Swap 20 TON to USDT every Friday"_\n• _"Alert me when TON hits $5"_`,
+          `I can help you automate TON transactions! Try something like:\n• _"Swap 20 TON to USDT every Friday at 10 AM EST"_\n• _"Alert me when TON hits $5"_`,
           { parse_mode: "Markdown" }
         );
       } else {

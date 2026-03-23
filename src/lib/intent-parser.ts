@@ -70,9 +70,10 @@ Alert-only action:
 - If no time is specified for a schedule, default to 09:00 UTC
 - Always generate a short descriptive name for the rule (e.g. "Weekly DCA", "Price Alert", "Monthly Send")
 - CRITICAL: NEVER drop or round the minutes! If the user says "7:35pm", the cron minute MUST be 35. Do not output "0 19 * * *". You must output "35 19 * * *".
+- If the user specifies an explicit timezone (e.g. EST, GMT+2, NY Time), you MUST logically convert their requested time to UTC for the cron expression, AND you MUST set the JSON "timezone" property to that exact label (e.g. "EST").
+- If the user DOES NOT specify a timezone, assume UTC for the cron, but you MUST set the JSON "timezone" property to "Unknown (Defaulting to UTC)".
 
 IMPORTANT: The user is in timezone: {{USER_TIMEZONE}}.
-When the user specifies a time (e.g. "9am"), you MUST logically convert this time from their local timezone to UTC and output the UTC cron expression.
 Vercel's Cron scheduler runs entirely on UTC, so ALL crons you create MUST be in UTC.`;
 
 export async function parseIntent(userMessage: string, userTimezone: string = "UTC"): Promise<ParsedIntent> {

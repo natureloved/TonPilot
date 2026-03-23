@@ -271,6 +271,7 @@ export default function ArcticDashboard() {
         if (tg?.initDataUnsafe?.user?.id) {
           tg.ready();
           tg.expand();
+          if (tg.enableClosingConfirmation) tg.enableClosingConfirmation();
           const uidStr = tg.initDataUnsafe.user.id.toString();
           setUserId(uidStr);
           fetchData(uidStr);
@@ -317,27 +318,31 @@ export default function ArcticDashboard() {
     // Optimistic update
     setRules(prev => prev.map(r => r.id === rule.id ? { ...r, status: newStatus } : r));
 
-    const { error } = await supabase
-      .from("rules")
-      .update({ status: newStatus })
-      .eq("id", rule.id);
-
-    if (error) {
-      console.error("Toggle error:", error);
+    try {
+      const res = await fetch("/api/rules", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: rule.id, status: newStatus })
+      });
+      if (!res.ok) throw new Error("Failed to toggle");
+    } catch (err) {
+      console.error("Toggle error:", err);
       // Revert
       setRules(prev => prev.map(r => r.id === rule.id ? { ...r, status: rule.status } : r));
     }
   };
 
   const deleteRule = async (id: string) => {
-    const { error } = await supabase
-      .from("rules")
-      .delete()
-      .eq("id", id);
-    
-    if (!error) {
-      setRules(prev => prev.filter(r => r.id !== id));
-      setShowDeleteConfirm(null);
+    try {
+      const res = await fetch(`/api/rules?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setRules(prev => prev.filter(r => r.id !== id));
+        setShowDeleteConfirm(null);
+      } else {
+        console.error("Delete failed");
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
     }
   };
 
