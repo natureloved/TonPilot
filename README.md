@@ -129,6 +129,14 @@ vercel.json                       ← Cron schedule (every minute)
 - [ ] `CRON_SECRET` set to protect the scheduler endpoint
 - [ ] Test on TON testnet before mainnet
 
+## Future Roadmap
+
+- **Cross-Chain Routing:** Expanding the AI parser to handle requests like *"Bridge 50 USDT from TON to Arbitrum every month."*
+- **Yield Farming Automation:** Allowing users to say *"Stake my unused TON in the highest-yielding protocol on DeDust."*
+- **Social & Copy Trading:** Users could subscribe to "Pilot Configs" shared by top traders (e.g., copying a popular DCA strategy automatically).
+- **Whale Alert Triggers:** "Swap all my STON to TON if a top 10 whale wallet moves more than $100k."
+- **DeFi Limit Orders:** Native support for automated grid-trading configurations based on dynamic pool liquidity.
+
 ---
 
 ## Hackathon Notes
