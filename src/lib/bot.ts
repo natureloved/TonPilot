@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { createAgenticWallet, executeMcpAction } from "@/lib/ton";
 import { Rule, User } from "@/types";
 import cronParser from "cron-parser";
+import { encryptMnemonic, decryptMnemonic } from "@/lib/encryption";
 
 // ── Bot Instance ─────────────────────────────────────────────────────────────
 
@@ -118,7 +119,7 @@ bot.callbackQuery("create_wallet", async (ctx) => {
       { parse_mode: "Markdown" }
     );
 
-    const mnemonicEncoded = Buffer.from(mnemonic.join(" "), "utf-8").toString("base64");
+    const mnemonicEncoded = encryptMnemonic(mnemonic.join(" "));
 
     await supabaseAdmin
       .from("users")
@@ -648,7 +649,7 @@ bot.callbackQuery("confirm_export", async (ctx) => {
 
   let mnemonicText = "";
   try {
-    mnemonicText = Buffer.from(user.wallet_mnemonic_enc, "base64").toString("utf-8");
+    mnemonicText = decryptMnemonic(user.wallet_mnemonic_enc);
   } catch (err) {
     mnemonicText = "Error decrypting mnemonic.";
     console.error("[export] decrypt error:", err);

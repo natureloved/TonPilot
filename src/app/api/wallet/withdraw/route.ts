@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { executeMcpAction } from "@/lib/ton";
+import { decryptMnemonic } from "@/lib/encryption";
 
 export async function POST(req: NextRequest) {
   const { userId, toAddress, amount } = await req.json();
@@ -26,9 +27,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const mnemonic = Buffer.from(
-    user.wallet_mnemonic_enc, "base64"
-  ).toString("utf-8");
+  const mnemonic = decryptMnemonic(user.wallet_mnemonic_enc);
 
   const result = await executeMcpAction(mnemonic, {
     type: "send",

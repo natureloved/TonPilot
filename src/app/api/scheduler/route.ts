@@ -5,6 +5,7 @@ import { Rule, User, ScheduleTrigger, PriceTrigger, BalanceTrigger } from "@/typ
 import { bot, computeNextRun } from "@/lib/bot";
 import { sendWeeklyReports } from "@/lib/weekly-report";
 import cronParser from "cron-parser";
+import { decryptMnemonic } from "@/lib/encryption";
 
 export async function GET(req: NextRequest) {
   // Protect this endpoint — only Vercel cron or your server should call it
@@ -82,10 +83,7 @@ export async function GET(req: NextRequest) {
           .eq("id", rule.id);
 
         // Execute the action
-        const mnemonic = Buffer.from(
-          rule.users.wallet_mnemonic_enc,
-          "base64"
-        ).toString("utf-8");
+        const mnemonic = decryptMnemonic(rule.users.wallet_mnemonic_enc);
 
         const execResult = await executeMcpAction(mnemonic, rule.action);
 
