@@ -74,6 +74,7 @@ create index idx_pending_rules_user_id on pending_rules(user_id);
 alter table users             enable row level security;
 alter table rules             enable row level security;
 alter table execution_logs    enable row level security;
+alter table pending_rules     enable row level security;
 
 -- Users can only read their own profile
 create policy "users_own_data" on users
@@ -86,3 +87,7 @@ create policy "rules_own_data" on rules
 -- Users can only see their own logs
 create policy "logs_own_data" on execution_logs
   for select using (auth.uid()::text = user_id);
+
+-- Users can only see their own pending rules
+create policy "pending_rules_own_data" on pending_rules
+  for all using (auth.uid()::text = user_id);
